@@ -1,0 +1,192 @@
+/* ============================================================
+   AgriChain — Farmer & Buyer dashboards (shared layout)
+   Plain CSS replacing the Tailwind utilities these two pages
+   used. Colour/spacing values mirror Tailwind's scale so the
+   look is unchanged. Shared because both dashboards are the
+   same shell: header + stat grid + two panels + quick actions.
+   ============================================================ */
+
+/* Page shell + container */
+.dash-page { min-height: 100vh; background: #f9fafb; }        /* bg-gray-50 */
+.dash-container {
+  max-width: 80rem;                                            /* max-w-7xl */
+  margin: 0 auto;
+  padding: 2rem 1rem;                                          /* py-8 px-4 */
+}
+@media (min-width: 640px)  { .dash-container { padding-left: 1.5rem; padding-right: 1.5rem; } }
+@media (min-width: 1024px) { .dash-container { padding-left: 2rem;   padding-right: 2rem;   } }
+
+/* Header row */
+.dash-header {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.dash-header--stack { flex-direction: column; }
+@media (min-width: 640px) {
+  .dash-header--stack { flex-direction: row; align-items: center; }
+}
+.dash-title {
+  font-size: 1.875rem;                                         /* text-3xl */
+  line-height: 2.25rem;
+  font-weight: 800;
+  color: #111827;
+}
+.dash-subtitle { color: #6b7280; margin-top: 0.25rem; }
+
+/* Primary green CTA */
+.dash-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;                                     /* py-3 px-6 */
+  border-radius: 0.75rem;                                      /* rounded-xl */
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+  text-decoration: none;
+}
+.dash-cta:hover { background: #15803d; }
+
+/* Stat cards */
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 1024px) { .dash-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.dash-stat { border: 1px solid; border-radius: 1rem; padding: 1.25rem; }
+.dash-stat--green   { background: #f0fdf4; border-color: #bbf7d0; }
+.dash-stat--blue    { background: #eff6ff; border-color: #bfdbfe; }
+.dash-stat--emerald { background: #ecfdf5; border-color: #a7f3d0; }
+.dash-stat--yellow  { background: #fefce8; border-color: #fef08a; }
+.dash-stat--purple  { background: #faf5ff; border-color: #e9d5ff; }
+.dash-stat__icon  { font-size: 1.875rem; margin-bottom: 0.5rem; }
+.dash-stat__value { font-size: 1.5rem; font-weight: 800; color: #111827; }
+.dash-stat__label { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
+
+/* Two-panel grid */
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+}
+@media (min-width: 1024px) { .dash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* White panel */
+.dash-panel {
+  background: #fff;
+  border-radius: 1rem;                                         /* rounded-2xl */
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);                     /* shadow-sm */
+  border: 1px solid #f3f4f6;                                   /* gray-100 */
+  overflow: hidden;
+}
+.dash-panel__head { padding: 1.25rem 1.5rem; border-bottom: 1px solid #f3f4f6; }
+.dash-panel__head--row { display: flex; justify-content: space-between; align-items: center; }
+.dash-panel__title { font-weight: 700; font-size: 1.125rem; color: #111827; }
+.dash-panel__sub { font-size: 0.75rem; color: #9ca3af; margin-top: 0.125rem; }
+
+.dash-link { color: #16a34a; font-size: 0.875rem; font-weight: 500; text-decoration: none; }
+.dash-link:hover { text-decoration: underline; }
+
+/* divide-y list */
+.dash-list > * + * { border-top: 1px solid #f9fafb; }
+
+/* Empty state */
+.dash-empty { padding: 2.5rem; text-align: center; }
+.dash-empty__icon { font-size: 2.25rem; margin-bottom: 0.75rem; }
+.dash-empty__text { color: #6b7280; font-weight: 500; }
+.dash-empty__link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: #16a34a;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.dash-empty__link:hover { text-decoration: underline; }
+
+/* Clickable list row (listing / contract) */
+.dash-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  text-decoration: none;
+}
+.dash-row:hover { background: #f9fafb; }
+.dash-row__thumb {
+  width: 3rem; height: 3rem;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.dash-row__thumb--ph {
+  background: #dcfce7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+.dash-row__body { flex: 1; min-width: 0; }
+.dash-row__name {
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-row__meta { font-size: 0.875rem; color: #6b7280; }
+.dash-row__right { text-align: right; flex-shrink: 0; }
+.dash-row__yield { color: #16a34a; font-weight: 700; font-size: 0.875rem; }
+.dash-row__sub { font-size: 0.75rem; color: #9ca3af; }
+
+/* Non-link list item (farmer contract requests) */
+.dash-item { padding: 1rem 1.5rem; }
+.dash-item__top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.25rem; }
+.dash-item__name { font-weight: 600; color: #111827; }
+.dash-item__meta { font-size: 0.875rem; color: #6b7280; }
+
+/* Market-price row (buyer) */
+.dash-price { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1.5rem; }
+.dash-price__name { font-weight: 600; color: #111827; font-size: 0.875rem; }
+.dash-price__market { font-size: 0.75rem; color: #9ca3af; }
+.dash-price__right { text-align: right; }
+.dash-price__val { font-weight: 700; color: #15803d; }
+.dash-price__unit { font-size: 0.75rem; color: #9ca3af; }
+
+/* Quick actions */
+.dash-actions {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .dash-actions--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dash-actions--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.dash-action {
+  display: block;
+  background: #fff;
+  border: 1px solid #f3f4f6;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  text-align: center;
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.15s;
+}
+.dash-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0,0,0,.12);
+  border-color: #bbf7d0;
+}
+.dash-action__icon { font-size: 1.875rem; margin-bottom: 0.5rem; }
+.dash-action__label { font-weight: 600; color: #374151; font-size: 0.875rem; }
+
+/* Badge shrink guard when a status pill sits in a flex row */
+.badge--shrink0 { flex-shrink: 0; }

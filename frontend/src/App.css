@@ -1,0 +1,37 @@
+/* ============================================================
+   App shell — NotFound (404) route.
+   Converted from Tailwind utilities to plain CSS.
+   ============================================================ */
+
+/* min-h-screen flex items-center justify-center bg-gray-50 text-center px-4 */
+.notfound {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  text-align: center;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+/* text-6xl mb-4 */
+.notfound__icon {
+  font-size: 3.75rem;
+  line-height: 1;
+  margin-bottom: 1rem;
+}
+/* text-2xl font-bold text-gray-900 mb-2 */
+.notfound__title {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+/* text-green-600 font-medium hover:underline */
+.notfound__link {
+  color: #16a34a;
+  font-weight: 500;
+  text-decoration: none;
+}
+.notfound__link:hover { text-decoration: underline; }

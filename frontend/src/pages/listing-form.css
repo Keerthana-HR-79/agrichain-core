@@ -1,0 +1,188 @@
+/* ============================================================
+   AgriChain — Listing forms (Create Listing, Edit Listing,
+   Add Stage). Shared because all three are the same shell:
+   page + heading + white panels of labelled form controls +
+   a full-width submit. Plain CSS mirroring the original
+   Tailwind utilities.
+   ============================================================ */
+
+/* Page shell */
+.lf-page { min-height: 100vh; background: #f9fafb; }
+.lf-container { max-width: 48rem; margin: 0 auto; padding: 2rem 1rem; }   /* max-w-3xl */
+.lf-container--narrow { max-width: 42rem; }                              /* max-w-2xl */
+
+/* Heading */
+.lf-head { margin-bottom: 1.5rem; }
+.lf-back {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  color: #16a34a; font-size: 0.875rem; font-weight: 500;
+  text-decoration: none; margin-bottom: 0.75rem;
+  background: none; border: none; cursor: pointer;
+}
+.lf-back:hover { text-decoration: underline; }
+.lf-title { font-size: 1.875rem; line-height: 2.25rem; font-weight: 800; color: #111827; }
+.lf-subtitle { color: #6b7280; margin-top: 0.25rem; }
+
+/* Alerts */
+.lf-alert--ok, .lf-alert--err {
+  padding: 0.75rem 1rem; border-radius: 0.75rem;
+  margin-bottom: 1.25rem; font-size: 0.875rem; border: 1px solid;
+}
+.lf-alert--ok  { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; }
+.lf-alert--err { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+/* Form + panels */
+.lf-form > * + * { margin-top: 1.5rem; }                                 /* space-y-6 */
+.lf-form--tight > * + * { margin-top: 1.25rem; }                         /* space-y-5 */
+.lf-panel {
+  background: #fff; border-radius: 1rem; padding: 1.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); border: 1px solid #f3f4f6;
+}
+.lf-panel__title { font-weight: 700; color: #111827; font-size: 1.125rem; margin-bottom: 1rem; }
+.lf-panel__title--sm { font-weight: 700; color: #111827; font-size: 0.875rem; margin-bottom: 0.75rem; }
+
+/* Field grid + controls */
+.lf-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+@media (min-width: 640px) { .lf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lf-grid--wide { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+@media (min-width: 640px) { .lf-grid--wide { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.lf-col-span2 { grid-column: span 1; }
+@media (min-width: 640px) { .lf-col-span2 { grid-column: span 2; } }
+
+.lf-label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.25rem; }
+.lf-label--sm { display: block; font-size: 0.75rem; font-weight: 600; color: #4b5563; margin-bottom: 0.25rem; }
+.lf-label--strong { display: block; font-size: 0.875rem; font-weight: 700; color: #111827; margin-bottom: 0.75rem; }
+
+.lf-control {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #111827;
+  background: #f9fafb;
+  font-family: inherit;
+  font-size: inherit;
+}
+.lf-control:focus { outline: none; box-shadow: 0 0 0 2px #22c55e; }
+.lf-control:disabled { background: #f3f4f6; color: #9ca3af; }
+.lf-control--sm { font-size: 0.875rem; }
+
+/* Submit button */
+.lf-submit {
+  width: 100%;
+  background: #16a34a; color: #fff; font-weight: 700;
+  padding: 1rem; border-radius: 1rem; font-size: 1.125rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1);
+  border: none; cursor: pointer;
+}
+.lf-submit:hover { background: #15803d; }
+.lf-submit:disabled { background: #d1d5db; cursor: default; }
+.lf-submit__loading { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+.lf-spinner {
+  width: 1.25rem; height: 1.25rem;
+  border: 2px solid #fff; border-top-color: transparent;
+  border-radius: 9999px; animation: spin 0.8s linear infinite;
+}
+
+/* ---- Create-listing success screen ---- */
+.lf-container--success { max-width: 36rem; margin: 0 auto; padding: 4rem 1rem; text-align: center; }
+.lf-success {
+  background: #fff; border-radius: 1.5rem; padding: 2.5rem;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,.1), 0 8px 10px -6px rgba(0,0,0,.1);
+  border: 1px solid #f3f4f6;
+}
+.lf-success__emoji { font-size: 3.75rem; margin-bottom: 1rem; }
+.lf-success__title { font-size: 1.5rem; font-weight: 800; color: #111827; margin-bottom: 0.5rem; }
+.lf-success__text { color: #6b7280; margin-bottom: 1.5rem; }
+.lf-success__yield {
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 1rem;
+  padding: 1.25rem; margin-bottom: 1.5rem;
+}
+.lf-success__yield-label { font-size: 0.875rem; color: #15803d; font-weight: 500; margin-bottom: 0.25rem; }
+.lf-success__yield-value { font-size: 2.25rem; font-weight: 800; color: #15803d; }
+.lf-success__yield-sub { font-size: 0.75rem; color: #16a34a; margin-top: 0.25rem; }
+.lf-success__yield-ai {
+  font-size: 0.75rem; color: #16a34a; margin-top: 0.5rem;
+  padding-top: 0.5rem; border-top: 1px solid #bbf7d0;
+}
+.lf-success__actions { display: flex; gap: 0.75rem; }
+.lf-btn--green {
+  flex: 1; background: #16a34a; color: #fff; font-weight: 700;
+  padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;
+}
+.lf-btn--green:hover { background: #15803d; }
+.lf-btn--gray {
+  flex: 1; background: #f3f4f6; color: #374151; font-weight: 700;
+  padding: 0.75rem; border-radius: 0.75rem; border: none; cursor: pointer;
+}
+.lf-btn--gray:hover { background: #e5e7eb; }
+
+/* ---- Image dropzones ---- */
+.lf-drop {
+  border: 2px dashed #e5e7eb; border-radius: 0.75rem;
+  padding: 1rem; text-align: center; transition: border-color 0.15s;
+}
+.lf-drop:hover { border-color: #34d399; }               /* green-400 */
+.lf-drop--blue { border-color: #bfdbfe; }
+.lf-drop--blue:hover { border-color: #60a5fa; }         /* blue-400 */
+.lf-drop--flush { border: 2px dashed #e5e7eb; border-radius: 0.75rem; overflow: hidden; transition: border-color 0.15s; }
+.lf-drop--flush:hover { border-color: #34d399; }
+.lf-drop__preview { width: 100%; height: 8rem; object-fit: cover; border-radius: 0.5rem; margin-bottom: 0.5rem; }
+.lf-drop__ph { color: #9ca3af; padding: 1.5rem 0; }
+.lf-drop__ph-icon { font-size: 1.875rem; margin-bottom: 0.5rem; }
+.lf-drop__ph-note { font-size: 0.75rem; color: #3b82f6; margin-top: 0.25rem; }
+.lf-hidden { display: none; }
+.lf-upload { cursor: pointer; color: #16a34a; font-size: 0.875rem; font-weight: 500; }
+.lf-upload:hover { text-decoration: underline; }
+.lf-upload--blue { cursor: pointer; color: #2563eb; font-size: 0.875rem; font-weight: 500; }
+.lf-upload--blue:hover { text-decoration: underline; }
+
+.lf-drop__preview-wrap { position: relative; }
+.lf-drop__preview-img { width: 100%; height: 13rem; object-fit: cover; }
+.lf-drop__remove {
+  position: absolute; top: 0.75rem; right: 0.75rem;
+  background: #ef4444; color: #fff; border: none; cursor: pointer;
+  border-radius: 9999px; width: 1.75rem; height: 1.75rem;
+  display: flex; align-items: center; justify-content: center; font-size: 0.875rem;
+}
+.lf-drop__remove:hover { background: #dc2626; }
+.lf-drop__label { display: flex; flex-direction: column; align-items: center; padding: 2.5rem 0; cursor: pointer; }
+.lf-drop__label-icon { font-size: 2.25rem; margin-bottom: 0.75rem; }
+.lf-drop__label-title { color: #4b5563; font-weight: 500; font-size: 0.875rem; }
+.lf-drop__label-note { color: #9ca3af; font-size: 0.75rem; margin-top: 0.25rem; }
+
+/* GPS captured boxes */
+.lf-gps { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 0.75rem; padding: 0.75rem; }
+.lf-gps--blue { background: #eff6ff; border-color: #bfdbfe; margin-top: 0.75rem; padding: 0.75rem 1rem; }
+.lf-gps__title { color: #15803d; font-size: 0.875rem; font-weight: 500; }
+.lf-gps__coord { color: #16a34a; font-size: 0.75rem; margin-top: 0.125rem; }
+.lf-gps--blue .lf-gps__title { color: #1d4ed8; }
+.lf-gps--blue .lf-gps__coord { color: #2563eb; }
+
+/* ---- Add-stage: completed chips + stage picker ---- */
+.lf-donecard {
+  background: #fff; border-radius: 1rem; padding: 1rem; margin-bottom: 1.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); border: 1px solid #f3f4f6;
+}
+.lf-donecard__label { font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem; }
+.lf-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.lf-chip { font-size: 0.75rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-weight: 500; }
+.lf-chip--done { background: #dcfce7; color: #15803d; }
+.lf-chip--todo { background: #f3f4f6; color: #9ca3af; }
+
+.lf-stagegrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+@media (min-width: 640px) { .lf-stagegrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.lf-stage {
+  padding: 0.75rem; border-radius: 0.75rem; border: 2px solid #e5e7eb;
+  text-align: center; background: #f9fafb; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.lf-stage:hover { border-color: #86efac; }              /* green-300 */
+.lf-stage--active { border-color: #22c55e; background: #f0fdf4; }
+.lf-stage__icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+.lf-stage__label { font-size: 0.75rem; font-weight: 700; color: #4b5563; }
+.lf-stage--active .lf-stage__label { color: #15803d; }
+
+.lf-alldone { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 0.75rem; padding: 1rem; text-align: center; }
+.lf-alldone__title { color: #15803d; font-weight: 600; }
+.lf-alldone__link { display: block; color: #16a34a; font-size: 0.875rem; margin-top: 0.25rem; text-decoration: none; }
+.lf-alldone__link:hover { text-decoration: underline; }

@@ -1,0 +1,168 @@
+/* ============================================================
+   AgriChain — Contract pages (Buyer "My Contracts" + Farmer
+   "Contract Requests"). Shared: both render a filter-tab bar
+   over a list of contract cards (crop + parties + financial
+   grid + response/settlement/dispute boxes + action row).
+   Plain CSS mirroring the original Tailwind utilities.
+   ============================================================ */
+
+.ct-page { min-height: 100vh; background: #f9fafb; }
+.ct-container { max-width: 64rem; margin: 0 auto; padding: 2rem 1rem; }   /* max-w-5xl */
+@media (min-width: 640px)  { .ct-container { padding-left: 1.5rem; padding-right: 1.5rem; } }
+@media (min-width: 1024px) { .ct-container { padding-left: 2rem;   padding-right: 2rem;   } }
+
+.ct-head { margin-bottom: 1.5rem; }
+.ct-title { font-size: 1.875rem; line-height: 2.25rem; font-weight: 800; color: #111827; }
+.ct-subtitle { color: #6b7280; margin-top: 0.25rem; }
+
+/* Filter tabs */
+.ct-filters { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; overflow-x: auto; }
+.ct-filter {
+  padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; font-weight: 500;
+  text-transform: capitalize; white-space: nowrap; cursor: pointer;
+  background: #fff; color: #4b5563; border: 1px solid #e5e7eb;
+}
+.ct-filter:hover { border-color: #86efac; }
+.ct-filter--active { background: #16a34a; color: #fff; border-color: #16a34a; }
+
+/* Empty state */
+.ct-empty {
+  background: #fff; border-radius: 1rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+  border: 1px solid #f3f4f6; padding: 3rem; text-align: center;
+}
+.ct-empty__icon { font-size: 2.25rem; margin-bottom: 0.75rem; }
+.ct-empty__text { color: #6b7280; font-weight: 500; }
+.ct-empty__link { color: #16a34a; font-size: 0.875rem; font-weight: 500; margin-top: 0.5rem; display: inline-block; text-decoration: none; }
+.ct-empty__link:hover { text-decoration: underline; }
+
+/* Cards */
+.ct-list > * + * { margin-top: 1rem; }
+.ct-card {
+  background: #fff; border-radius: 1rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+  border: 1px solid #f3f4f6; overflow: hidden;
+}
+.ct-card__body { padding: 1.5rem; }
+
+/* Card header — buyer (with thumbnail) */
+.ct-cardhead { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
+.ct-cardhead__main { flex: 1; }
+.ct-cardhead__row { display: flex; justify-content: space-between; align-items: flex-start; }
+.ct-thumb { width: 4rem; height: 4rem; border-radius: 0.75rem; object-fit: cover; flex-shrink: 0; }
+.ct-thumb-ph {
+  width: 4rem; height: 4rem; border-radius: 0.75rem; background: #dcfce7;
+  display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;
+}
+/* Card header — farmer (no thumbnail) */
+.ct-cardhead--simple { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+
+.ct-crop { font-size: 1.25rem; font-weight: 700; color: #111827; }
+.ct-party { color: #6b7280; font-size: 0.875rem; }
+.ct-party--mt { margin-top: 0.125rem; }
+.ct-place { color: #9ca3af; font-size: 0.75rem; }
+
+/* Status badge */
+.ct-badge { font-size: 0.75rem; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+.ct-badge--pending   { background: #fef9c3; color: #854d0e; border-color: #fef08a; }
+.ct-badge--accepted  { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.ct-badge--rejected  { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.ct-badge--completed { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+.ct-badge--default   { background: #f3f4f6; color: #374151; border-color: transparent; }
+
+/* Financial grid */
+.ct-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+@media (min-width: 768px) { .ct-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ct-facts--gap4 { gap: 1rem; }
+.ct-fact { background: #f9fafb; border-radius: 0.75rem; padding: 0.75rem; }
+.ct-fact__label { font-size: 0.75rem; color: #6b7280; }
+.ct-fact__value { font-weight: 700; color: #111827; font-size: 0.875rem; margin-top: 0.125rem; }
+
+/* Note boxes (responses / settlement) */
+.ct-note { border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid; }
+.ct-note--tight { padding: 0.75rem; }
+.ct-note--green { background: #f0fdf4; border-color: #dcfce7; }
+.ct-note--blue  { background: #eff6ff; border-color: #dbeafe; }
+.ct-note--blue2 { background: #eff6ff; border-color: #bfdbfe; }
+.ct-note__label { font-size: 0.75rem; font-weight: 500; margin-bottom: 0.25rem; }
+.ct-note__label--green { color: #16a34a; }
+.ct-note__label--blue  { color: #3b82f6; }
+.ct-note__label--blue2 { color: #2563eb; }
+.ct-note__text { font-size: 0.875rem; color: #374151; }
+.ct-note__amount { font-weight: 700; color: #1d4ed8; }
+
+/* Dispute banner */
+.ct-dispute { border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid; }
+.ct-dispute--open   { background: #fffbeb; border-color: #fde68a; }
+.ct-dispute--closed { background: #f9fafb; border-color: #e5e7eb; }
+.ct-dispute__label { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; }
+.ct-dispute__label--open   { color: #b45309; }
+.ct-dispute__label--closed { color: #6b7280; }
+.ct-dispute__admin { font-size: 0.875rem; color: #4b5563; margin-top: 0.5rem; }
+
+/* Dispute form */
+.ct-dform { background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1rem; }
+.ct-dform__label { font-size: 0.75rem; color: #b45309; font-weight: 600; margin-bottom: 0.5rem; }
+.ct-dform__input {
+  width: 100%; border: 1px solid #fde68a; border-radius: 0.75rem; padding: 0.5rem 0.75rem;
+  font-size: 0.875rem; color: #111827; background: #fff; margin-bottom: 0.75rem; font-family: inherit;
+}
+.ct-dform__input:focus { outline: none; box-shadow: 0 0 0 2px #fbbf24; }
+.ct-dform__actions { display: flex; gap: 0.5rem; }
+
+/* Action row */
+.ct-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+.ct-actions--tight { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; }
+/* Works as both an <a> link and a bare <button> styled as a link */
+.ct-link { font-size: 0.875rem; color: #16a34a; font-weight: 500; text-decoration: none; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
+.ct-link:hover { text-decoration: underline; }
+.ct-link--blue { color: #2563eb; }
+.ct-link--amber { color: #d97706; }
+.ct-ml-auto { margin-left: auto; }
+.ct-sep { color: #d1d5db; }
+.ct-date { font-size: 0.75rem; color: #9ca3af; }
+
+/* Inline settle (buyer) */
+.ct-settle { display: flex; gap: 0.5rem; align-items: center; margin-left: auto; }
+.ct-settle__input {
+  border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 0.5rem 0.75rem;
+  font-size: 0.875rem; width: 10rem; font-family: inherit;
+}
+.ct-settle__input:focus { outline: none; box-shadow: 0 0 0 2px #3b82f6; }
+
+/* Farmer respond panel */
+.ct-respond-btn {
+  margin-top: 1rem; background: #16a34a; color: #fff; font-weight: 700;
+  padding: 0.625rem 1.5rem; border-radius: 0.75rem; font-size: 0.875rem; border: none; cursor: pointer;
+}
+.ct-respond-btn:hover { background: #15803d; }
+.ct-respond { margin-top: 1rem; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 1rem; }
+.ct-respond__input {
+  width: 100%; border: 1px solid #e5e7eb; border-radius: 0.75rem; padding: 0.5rem 0.75rem;
+  font-size: 0.875rem; color: #111827; background: #fff; margin-bottom: 0.75rem; font-family: inherit;
+}
+.ct-respond__input:focus { outline: none; box-shadow: 0 0 0 2px #22c55e; }
+.ct-respond__actions { display: flex; gap: 0.5rem; }
+
+/* Buttons */
+.ct-btn--amber { background: #d97706; color: #fff; font-weight: 700; padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; border: none; cursor: pointer; }
+.ct-btn--amber:hover { background: #b45309; }
+.ct-btn--blue { background: #2563eb; color: #fff; font-weight: 700; padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; border: none; cursor: pointer; }
+.ct-btn--blue:hover { background: #1d4ed8; }
+.ct-btn--blueSoft {
+  margin-left: auto; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+  font-weight: 700; padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; cursor: pointer;
+}
+.ct-btn--blueSoft:hover { background: #dbeafe; }
+.ct-btn--rate {
+  margin-left: auto; background: #fefce8; color: #a16207; border: 1px solid #fef08a;
+  font-weight: 700; padding: 0.5rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; cursor: pointer;
+}
+.ct-btn--rate:hover { background: #fef9c3; }
+.ct-btn--accept { flex: 1; background: #16a34a; color: #fff; font-weight: 700; padding: 0.625rem 0; border-radius: 0.75rem; font-size: 0.875rem; border: none; cursor: pointer; }
+.ct-btn--accept:hover { background: #15803d; }
+.ct-btn--reject { flex: 1; background: #ef4444; color: #fff; font-weight: 700; padding: 0.625rem 0; border-radius: 0.75rem; font-size: 0.875rem; border: none; cursor: pointer; }
+.ct-btn--reject:hover { background: #dc2626; }
+.ct-btn--cancelbox { padding: 0.625rem 1rem; background: #e5e7eb; color: #374151; font-weight: 500; border-radius: 0.75rem; font-size: 0.875rem; border: none; cursor: pointer; }
+.ct-btn--cancelbox:hover { background: #d1d5db; }
+.ct-cancel { color: #6b7280; font-size: 0.875rem; background: none; border: none; cursor: pointer; }
+.ct-cancel:hover { text-decoration: underline; }
+.ct-cancel--pad { padding: 0 0.5rem; }

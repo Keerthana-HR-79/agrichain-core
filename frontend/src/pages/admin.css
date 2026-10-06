@@ -1,0 +1,327 @@
+/* ============================================================
+   AgriChain — Admin panel (AdminDashboard)
+   Plain CSS replacing this page's Tailwind utilities. Colours
+   and spacing mirror Tailwind's scale so the look is unchanged.
+   Reuses the global primitives from index.css: .badge (pill
+   shape), .spinner + .page-loader (loading state).
+   ============================================================ */
+
+/* Page shell + container */
+.admin-page { min-height: 100vh; background: #f9fafb; }          /* bg-gray-50 */
+.admin-container {
+  max-width: 80rem;                                              /* max-w-7xl */
+  margin: 0 auto;
+  padding: 2rem 1rem;                                            /* py-8 px-4 */
+}
+@media (min-width: 640px)  { .admin-container { padding-left: 1.5rem; padding-right: 1.5rem; } } /* sm:px-6 */
+@media (min-width: 1024px) { .admin-container { padding-left: 2rem;   padding-right: 2rem;   } } /* lg:px-8 */
+
+/* Page heading */
+.admin-head { margin-bottom: 2rem; }                             /* mb-8 */
+.admin-head__title {
+  font-size: 1.875rem; line-height: 2.25rem;                     /* text-3xl */
+  font-weight: 800;                                              /* font-extrabold */
+  color: #111827;                                                /* gray-900 */
+}
+.admin-head__subtitle { color: #6b7280; margin-top: 0.25rem; }   /* text-gray-500 mt-1 */
+
+/* Stats grid — 2 cols, 4 from md (768px) */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+@media (min-width: 768px) { .admin-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.admin-stat {
+  background: #fff;
+  border: 1px solid #f3f4f6;                                     /* gray-100 */
+  border-radius: 1rem;                                           /* rounded-2xl */
+  padding: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);                       /* shadow-sm */
+}
+.admin-stat__icon  { font-size: 1.5rem; margin-bottom: 0.25rem; }/* text-2xl mb-1 */
+.admin-stat__value { font-size: 1.5rem; font-weight: 800; color: #111827; }
+.admin-stat__label { font-size: 0.75rem; color: #6b7280; }       /* text-xs gray-500 */
+
+/* Tab bar */
+.admin-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;                                         /* mb-6 */
+  border-bottom: 1px solid #e5e7eb;                              /* gray-200 */
+  overflow-x: auto;
+}
+.admin-tab {
+  padding: 0.625rem 1.25rem;                                     /* py-2.5 px-5 */
+  font-weight: 500;
+  font-size: 0.875rem;                                           /* text-sm */
+  text-transform: capitalize;
+  border-radius: 0.5rem 0.5rem 0 0;                              /* rounded-t-lg */
+  white-space: nowrap;
+  background: none;
+  border: none;
+  color: #4b5563;                                                /* gray-600 */
+  cursor: pointer;
+}
+.admin-tab:hover { color: #15803d; }                             /* hover:text-green-700 */
+.admin-tab--active { background: #16a34a; color: #fff; }         /* bg-green-600 text-white */
+.admin-tab--active:hover { color: #fff; }
+/* Open-dispute count badge on the disputes tab */
+.admin-tab__badge {
+  margin-left: 0.375rem;                                         /* ml-1.5 */
+  padding: 0.125rem 0.375rem;                                    /* py-0.5 px-1.5 */
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #fef3c7;                                           /* amber-100 */
+  color: #b45309;                                                /* amber-700 */
+}
+.admin-tab--active .admin-tab__badge { background: #fff; color: #15803d; } /* bg-white text-green-700 */
+
+/* White card wrapping a table (or a dispute) */
+.admin-card {
+  background: #fff;
+  border-radius: 1rem;                                           /* rounded-2xl */
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);                       /* shadow-sm */
+  border: 1px solid #f3f4f6;                                     /* gray-100 */
+  overflow: hidden;
+}
+.admin-card__head { padding: 1rem 1.5rem; border-bottom: 1px solid #f3f4f6; } /* px-6 py-4 */
+.admin-card__title { font-weight: 700; color: #111827; }         /* font-bold gray-900 */
+
+/* Tables */
+.admin-tablewrap { overflow-x: auto; }
+.admin-table { width: 100%; font-size: 0.875rem; border-collapse: collapse; }
+.admin-table thead { background: #f9fafb; }                      /* gray-50 */
+.admin-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;                                         /* px-4 py-3 */
+  color: #6b7280;                                                /* gray-500 */
+  font-weight: 600;                                              /* font-semibold */
+}
+.admin-table td { padding: 0.75rem 1rem; }                       /* px-4 py-3 */
+.admin-table tbody tr + tr { border-top: 1px solid #f9fafb; }    /* divide-y divide-gray-50 */
+.admin-table tbody tr:hover { background: #f9fafb; }             /* hover:bg-gray-50 */
+/* Cell text variants */
+.admin-td--strong { font-weight: 500; color: #111827; }          /* font-medium gray-900 */
+.admin-td--muted  { color: #6b7280; }                            /* gray-500 */
+.admin-td--dark   { color: #374151; }                            /* gray-700 */
+.admin-td--date   { color: #9ca3af; font-size: 0.75rem; }        /* gray-400 text-xs */
+.admin-td--yield  { color: #15803d; font-weight: 500; }          /* green-700 font-medium */
+
+/* Small pills reused in table cells (pair with global .badge) */
+.admin-pill--farmer    { background: #dcfce7; color: #166534; }  /* green-100 / green-800 */
+.admin-pill--buyer     { background: #dbeafe; color: #1e40af; }  /* blue-100 / blue-800 */
+.admin-pill--admin     { background: #f3e8ff; color: #6b21a8; }  /* purple-100 / purple-800 */
+.admin-pill--active    { background: #dcfce7; color: #15803d; }  /* green-100 / green-700 */
+.admin-pill--suspended { background: #fee2e2; color: #b91c1c; }  /* red-100 / red-700 */
+
+/* Verified / pending flags (listings table) */
+.admin-flag--ok { color: #16a34a; font-size: 0.75rem; font-weight: 500; } /* green-600 */
+.admin-flag--no { color: #ef4444; font-size: 0.75rem; font-weight: 500; } /* red-500 */
+
+/* Small action buttons (suspend/activate/verify) */
+.admin-btn-sm {
+  font-size: 0.75rem;                                            /* text-xs */
+  padding: 0.375rem 0.75rem;                                     /* py-1.5 px-3 */
+  border-radius: 0.5rem;                                         /* rounded-lg */
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+}
+.admin-btn-sm--danger { background: #fef2f2; color: #dc2626; }   /* red-50 / red-600 */
+.admin-btn-sm--danger:hover { background: #fee2e2; }             /* red-100 */
+.admin-btn-sm--ok { background: #f0fdf4; color: #16a34a; }       /* green-50 / green-600 */
+.admin-btn-sm--ok:hover { background: #dcfce7; }                 /* green-100 */
+
+/* ---- Disputes tab ---- */
+.admin-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;                                        /* mb-5 */
+  overflow-x: auto;
+}
+.admin-filter {
+  padding: 0.5rem 1rem;                                          /* py-2 px-4 */
+  border-radius: 0.75rem;                                        /* rounded-xl */
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  white-space: nowrap;
+  background: #fff;
+  color: #4b5563;                                                /* gray-600 */
+  border: 1px solid #e5e7eb;                                     /* gray-200 */
+  cursor: pointer;
+}
+.admin-filter:hover { border-color: #fcd34d; }                   /* amber-300 */
+.admin-filter--active {
+  background: #d97706;                                           /* amber-600 */
+  color: #fff;
+  border-color: #d97706;
+}
+
+/* Empty / loading box */
+.admin-empty {
+  background: #fff;
+  border: 1px solid #f3f4f6;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+  padding: 3rem;                                                 /* p-12 */
+  text-align: center;
+}
+.admin-empty--muted { color: #9ca3af; }                          /* gray-400 (loading text) */
+.admin-empty__icon  { font-size: 2.25rem; margin-bottom: 0.75rem; } /* text-4xl mb-3 */
+.admin-empty__title { color: #6b7280; font-weight: 500; }        /* gray-500 */
+.admin-empty__hint  { color: #9ca3af; font-size: 0.875rem; margin-top: 0.25rem; } /* gray-400 text-sm */
+
+/* Dispute list + card */
+.admin-disputes > * + * { margin-top: 1rem; }                    /* space-y-4 */
+.admin-dispute__body { padding: 1.5rem; }                        /* p-6 */
+.admin-dispute__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.admin-dispute__crop { font-size: 1.25rem; font-weight: 700; color: #111827; } /* text-xl */
+.admin-dispute__parties { color: #6b7280; font-size: 0.875rem; margin-top: 0.125rem; }
+.admin-dispute__raised  { color: #9ca3af; font-size: 0.75rem;  margin-top: 0.125rem; }
+
+.admin-dstatus {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;                                      /* py-1 px-3 */
+  border-radius: 9999px;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.admin-dstatus--open     { background: #fef3c7; color: #92400e; border-color: #fde68a; } /* amber 100/800/200 */
+.admin-dstatus--resolved { background: #dcfce7; color: #166534; border-color: #bbf7d0; } /* green 100/800/200 */
+.admin-dstatus--rejected { background: #f3f4f6; color: #374151; border-color: #e5e7eb; } /* gray 100/700/200 */
+
+/* Contract facts grid inside a dispute */
+.admin-dispute__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+@media (min-width: 768px) { .admin-dispute__facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.admin-fact { background: #f9fafb; border-radius: 0.75rem; padding: 0.75rem; }
+.admin-fact__label { font-size: 0.75rem; color: #6b7280; }
+.admin-fact__value { font-weight: 700; color: #111827; font-size: 0.875rem; margin-top: 0.125rem; text-transform: capitalize; }
+
+/* Reason / resolution panels */
+.admin-reason {
+  background: #fffbeb;                                           /* amber-50 */
+  border: 1px solid #fef3c7;                                     /* amber-100 */
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.admin-reason__label { font-size: 0.75rem; color: #d97706; font-weight: 500; margin-bottom: 0.25rem; } /* amber-600 */
+.admin-reason__text  { font-size: 0.875rem; color: #374151; }
+
+.admin-resolution {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+}
+.admin-resolution__label { font-size: 0.75rem; color: #6b7280; font-weight: 500; margin-bottom: 0.25rem; }
+.admin-resolution__text  { font-size: 0.875rem; color: #374151; }
+
+/* Active resolve form */
+.admin-resolve {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+.admin-resolve__label { font-size: 0.75rem; color: #4b5563; font-weight: 600; margin-bottom: 0.5rem; }
+.admin-resolve__input {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;                                       /* py-2 px-3 */
+  font-size: 0.875rem;
+  color: #111827;
+  background: #fff;
+  margin-bottom: 0.75rem;
+  font-family: inherit;
+  resize: vertical;
+}
+.admin-resolve__input:focus { outline: none; box-shadow: 0 0 0 2px #fbbf24; } /* ring-amber-400 */
+.admin-resolve__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.admin-resolve__hint { font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem; }
+
+/* Buttons (dispute actions) */
+.admin-btn {
+  font-weight: 700;
+  padding: 0.5rem 1rem;                                          /* py-2 px-4 */
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+}
+.admin-btn--lg { padding: 0.625rem 1.25rem; }                    /* py-2.5 px-5 */
+.admin-btn--green { background: #16a34a; color: #fff; }
+.admin-btn--green:hover { background: #15803d; }
+.admin-btn--amber { background: #d97706; color: #fff; }
+.admin-btn--amber:hover { background: #b45309; }
+.admin-btn--gray { background: #e5e7eb; color: #374151; }
+.admin-btn--gray:hover { background: #d1d5db; }
+.admin-btn-plain { background: none; border: none; cursor: pointer; color: #6b7280; font-size: 0.875rem; padding: 0 0.5rem; }
+.admin-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ---- Overview: market price control ---- */
+.admin-market { padding: 1.25rem 1.5rem; }                        /* px-6 py-5 */
+.admin-market__desc { color: #6b7280; font-size: 0.875rem; line-height: 1.5; margin-bottom: 0.75rem; max-width: 42rem; }
+.admin-market__log { color: #374151; font-size: 0.875rem; margin-bottom: 1rem; }
+.admin-market__msg { color: #15803d; font-size: 0.875rem; margin-top: 0.75rem; }
+
+/* ---- Broadcast tab ---- */
+.admin-broadcast { max-width: 32rem; }                           /* max-w-lg */
+.admin-broadcast__card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+  border: 1px solid #f3f4f6;
+  padding: 1.5rem;
+}
+.admin-broadcast__title { font-weight: 700; color: #111827; font-size: 1.125rem; margin-bottom: 1.25rem; }
+.admin-broadcast__status {
+  background: #f0fdf4;                                           /* green-50 */
+  border: 1px solid #bbf7d0;                                     /* green-200 */
+  color: #15803d;                                                /* green-700 */
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+}
+.admin-form > * + * { margin-top: 1rem; }                        /* space-y-4 */
+.admin-form__label { display: block; font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.25rem; }
+.admin-form__control {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;                                         /* py-3 px-4 */
+  color: #111827;
+  background: #f9fafb;                                           /* bg-gray-50 */
+  font-family: inherit;
+  font-size: inherit;
+}
+.admin-form__control:focus { outline: none; box-shadow: 0 0 0 2px #22c55e; } /* ring-green-500 */
+.admin-form__submit {
+  width: 100%;
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: none;
+  cursor: pointer;
+}
+.admin-form__submit:hover { background: #15803d; }

@@ -1,0 +1,69 @@
+# ============================================================
+# AgriChain — CORE BUILD — Render Blueprint
+# Deploys the Node/Express backend as ONE free web service.
+#
+# This trimmed build has NO AI service: the Python `ai-service/`
+# (yield prediction) plus the chatbot/RAG and offline/PWA features
+# were removed, so there is no second (python) service here.
+#
+# Use: Render Dashboard → New → Blueprint → connect this repo.
+# Values marked "sync: false" are entered in the Render dashboard
+# (they are secrets or depend on URLs that only exist after deploy).
+# ============================================================
+
+services:
+  # ── Backend API (Node / Express) ────────────────────────────
+  - type: web
+    name: agrichain-core-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+
+      # PostgreSQL — Supabase SESSION-mode pooler (see DEPLOY.md).
+      # escrow uses advisory locks + SERIALIZABLE, which need a stable
+      # session — do NOT use the transaction-mode pooler (port 6543).
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL
+        value: "true"
+
+      # Supabase Storage (image uploads: listing + stage photos).
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+
+      # Auth — Render generates a strong random secret automatically.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Set AFTER the frontend deploys (your Vercel URL) — used for CORS.
+      - key: FRONTEND_URL
+        sync: false
+
+      # Email (signup/login/reset OTP). Render blocks outbound SMTP, so
+      # OTP goes through the SendGrid HTTPS API. EMAIL_USER doubles as the
+      # SendGrid-verified "from" address.
+      - key: EMAIL_USER
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+
+      # Market prices (data.gov.in) — optional; falls back to the shared
+      # sample key, then last-known, then simulated.
+      - key: DATA_GOV_API_KEY
+        sync: false

@@ -1,0 +1,55 @@
+# ============================================================
+# AgriChain — root .gitignore
+# ============================================================
+
+# ── Secrets — NEVER commit these ─────────────────────────────
+# Real credentials (DB_PASSWORD, SUPABASE_SERVICE_KEY, EMAIL_PASS,
+# JWT_SECRET, GROQ_API_KEY, ...) live in .env. Only .env.example
+# (placeholders) is tracked.
+.env
+.env.*
+!.env.example
+*/.env
+*/.env.*
+!*/.env.example
+
+# ── Node.js (backend + frontend) ─────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Vite / frontend build output ─────────────────────────────
+frontend/dist/
+dist/
+*.local
+
+# ── Python (ai-service) ──────────────────────────────────────
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── Uploads / runtime artifacts ──────────────────────────────
+backend/uploads/
+*.log
+logs/
+
+# ── OS / editor cruft ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Notes ────────────────────────────────────────────────────
+# Trained models (ai-service/models/*.pkl) ARE tracked — they are
+# required to run the yield predictor and are small. Retrain with
+# ai-service/src/train_optimized.py (see TRAINING_GUIDE.md).
+# If raw training data in ai-service/data/ grows large, ignore it
+# here and document how to re-download it.
