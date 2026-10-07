@@ -93,15 +93,6 @@ CREATE TABLE IF NOT EXISTS crop_updates (
   created_at          TIMESTAMP DEFAULT NOW()
 );
 
--- PREDICTION HISTORY
-CREATE TABLE IF NOT EXISTS prediction_history (
-  id              SERIAL PRIMARY KEY,
-  listing_id      INTEGER REFERENCES listings(id),
-  stage_id        INTEGER REFERENCES crop_stages(id),
-  predicted_yield NUMERIC,
-  created_at      TIMESTAMP DEFAULT NOW()
-);
-
 -- CONTRACTS
 CREATE TABLE IF NOT EXISTS contracts (
   id                        SERIAL PRIMARY KEY,
@@ -238,66 +229,6 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE(contract_id, reviewer_id)
 );
 
--- CHATBOT MESSAGES
-CREATE TABLE IF NOT EXISTS chatbot_messages (
-  id         SERIAL PRIMARY KEY,
-  user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
-  role       VARCHAR(20) NOT NULL CHECK (role IN ('user','assistant')),
-  content    TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- RAG DOCUMENTS
-CREATE TABLE IF NOT EXISTS rag_documents (
-  id         SERIAL PRIMARY KEY,
-  title      VARCHAR(255),
-  content    TEXT,
-  category   VARCHAR(100),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- CROP HEALTH TIPS
-CREATE TABLE IF NOT EXISTS crop_health_tips (
-  id         SERIAL PRIMARY KEY,
-  listing_id INTEGER REFERENCES listings(id) ON DELETE CASCADE,
-  stage_name VARCHAR(100),
-  tip        TEXT,
-  severity   VARCHAR(20) DEFAULT 'info',
-  category   VARCHAR(50) DEFAULT 'general',
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- NEGOTIATION LOG
-CREATE TABLE IF NOT EXISTS negotiation_log (
-  id              SERIAL PRIMARY KEY,
-  contract_id     INTEGER REFERENCES contracts(id) ON DELETE CASCADE,
-  role            VARCHAR(20),
-  message         TEXT,
-  suggested_price NUMERIC,
-  reasoning       TEXT,
-  created_at      TIMESTAMP DEFAULT NOW()
-);
-
--- PREDICTION LOG (model monitoring)
-CREATE TABLE IF NOT EXISTS prediction_log (
-  id                       SERIAL PRIMARY KEY,
-  listing_id               INTEGER REFERENCES listings(id) ON DELETE CASCADE,
-  stage_name               VARCHAR(100),
-  predicted_yield_tonnes   NUMERIC,
-  actual_yield_tonnes      NUMERIC,
-  predicted_kg_ha          NUMERIC,
-  crop_name                VARCHAR(100),
-  district                 VARCHAR(100),
-  state                    VARCHAR(100),
-  soil_type                VARCHAR(100),
-  irrigation_method        VARCHAR(100),
-  land_size_acres          NUMERIC,
-  season                   VARCHAR(50),
-  model_version            VARCHAR(50),
-  error_pct                NUMERIC,
-  created_at               TIMESTAMP DEFAULT NOW()
-);
-
 -- ── Indexes for performance ───────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_listings_farmer_id   ON listings(farmer_id);
 CREATE INDEX IF NOT EXISTS idx_listings_status       ON listings(status);
@@ -310,7 +241,6 @@ CREATE INDEX IF NOT EXISTS idx_escrow_contract_id    ON escrow(contract_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_contract_id    ON escrow_ledger(contract_id);
 CREATE INDEX IF NOT EXISTS idx_milestones_escrow     ON escrow_milestones(escrow_id);
 CREATE INDEX IF NOT EXISTS idx_milestones_contract   ON escrow_milestones(contract_id);
-CREATE INDEX IF NOT EXISTS idx_pred_log_listing_id   ON prediction_log(listing_id);
 CREATE INDEX IF NOT EXISTS idx_stages_listing_id     ON crop_stages(listing_id);
 
 -- ── Seed data ─────────────────────────────────────────────────────────────────

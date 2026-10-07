@@ -17,7 +17,6 @@ export default function ListingPage() {
   const navigate = useNavigate();
   const [listing, setListing] = useState(null);
   const [stages, setStages] = useState([]);
-  const [predHistory, setPredHistory] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [contractForm, setContractForm] = useState({
@@ -43,7 +42,6 @@ export default function ListingPage() {
         api.get(`/stages/${id}`),
       ]);
       setListing(listRes.data.listing);
-      setPredHistory(listRes.data.prediction_history || []);
       setStages(stagesRes.data.stages || []);
     } catch (e) {
       console.error(e);

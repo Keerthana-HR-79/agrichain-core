@@ -123,19 +123,6 @@ const createStage = async (req, res) => {
 
     const stage = result.rows[0];
 
-    // Update prediction history
-    const listingResult = await pool.query(
-      "SELECT predicted_yield FROM listings WHERE id = $1",
-      [listing_id]
-    );
-    const predictedYield = listingResult.rows[0]?.predicted_yield || 0;
-
-    await pool.query(
-      `INSERT INTO prediction_history (listing_id, stage_id, predicted_yield)
-       VALUES ($1, $2, $3)`,
-      [listing_id, stage.id, predictedYield]
-    );
-
     // Notify buyers who have active contracts for this listing
     const buyerContracts = await pool.query(
       `SELECT DISTINCT buyer_id FROM contracts
@@ -212,7 +199,6 @@ const deleteStage = async (req, res) => {
     const { id } = req.params;
 
     await pool.query("DELETE FROM crop_updates WHERE stage_id = $1", [id]);
-    await pool.query("DELETE FROM prediction_history WHERE stage_id = $1", [id]);
     await pool.query("DELETE FROM crop_stages WHERE id = $1", [id]);
 
     res.status(200).json({ success: true, message: "Stage deleted successfully" });

@@ -190,20 +190,9 @@ const getListingById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Listing not found" });
     }
 
-    // Fetch prediction history
-    const predHistory = await pool.query(
-      `SELECT prediction_history.*, crop_stages.stage_name
-       FROM prediction_history
-       LEFT JOIN crop_stages ON prediction_history.stage_id = crop_stages.id
-       WHERE prediction_history.listing_id = $1
-       ORDER BY prediction_history.created_at ASC`,
-      [id]
-    );
-
     res.status(200).json({
       success: true,
       listing: result.rows[0],
-      prediction_history: predHistory.rows,
     });
   } catch (error) {
     console.error(error);
