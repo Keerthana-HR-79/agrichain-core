@@ -14,6 +14,7 @@ export default function EscrowPage() {
   const [releasingMs, setReleasingMs] = useState(null);
   const [settling, setSettling]   = useState(null);
   const [marketPrice, setMarketPrice] = useState("");
+  const [deliveredQty, setDeliveredQty] = useState("");
   const [priceInfo, setPriceInfo] = useState(null);   // { source, note } from autofill
   const [fetchingPrice, setFetchingPrice] = useState(false);
   const [error, setError]   = useState("");
@@ -34,7 +35,7 @@ export default function EscrowPage() {
   };
 
   const releaseAdvance = async (contractId) => {
-    if (!window.confirm("Release the 15% advance payment to the farmer? This cannot be undone.")) return;
+    if (!window.confirm("Release the 5% cultivation advance to the farmer? This cannot be undone.")) return;
     setReleasing(contractId);
     setError("");
     try {
@@ -91,18 +92,24 @@ export default function EscrowPage() {
     }
   };
 
-  const settle = async (contractId) => {
+  const settle = async (e) => {
     if (!marketPrice || isNaN(marketPrice)) return setError("Enter a valid market price");
-    if (!window.confirm(`Settle at ₹${marketPrice}/quintal? This will complete the contract.`)) return;
-    setSettling(contractId);
+    const agreedQty = parseFloat(e.quantity) || 0;
+    const delivered = deliveredQty === "" ? agreedQty : parseFloat(deliveredQty);
+    if (isNaN(delivered) || delivered < 0) return setError("Enter a valid delivered quantity");
+    if (delivered > agreedQty) return setError(`Delivered can't exceed the contracted ${agreedQty}t`);
+    if (!window.confirm(
+      `Settle ${delivered}t at ₹${marketPrice}/quintal (live market rate)? This completes the contract.`
+    )) return;
+    setSettling(e.contract_id);
     setError("");
     try {
       const res = await api.put(
-        `/escrow/contract/${contractId}/settle`,
-        { market_price_per_quintal: parseFloat(marketPrice) },
-        { headers: { "X-Idempotency-Key": `settle-${contractId}-${user.id}-${Date.now()}` } }
+        `/escrow/contract/${e.contract_id}/settle`,
+        { market_price_per_quintal: parseFloat(marketPrice), delivered_quantity: delivered },
+        { headers: { "X-Idempotency-Key": `settle-${e.contract_id}-${user.id}-${Date.now()}` } }
       );
-      if (res.data.success) { fetchEscrows(); setMarketPrice(""); setSettling(null); }
+      if (res.data.success) { fetchEscrows(); setMarketPrice(""); setDeliveredQty(""); setSettling(null); }
     } catch (err) {
       setError(err.response?.data?.message || "Settlement failed");
     } finally { setSettling(null); }
@@ -174,12 +181,12 @@ export default function EscrowPage() {
               <p className="esc-explain__box-text">Buyer's 110% buffer is locked. Covers contract value + 10% market price headroom.</p>
             </div>
             <div className="esc-explain__box esc-explain__box--green">
-              <p className="esc-explain__box-title">🌾 Stage-wise Releases</p>
-              <p className="esc-explain__box-text">15% advance funds cultivation, then payments unlock as the farmer proves each GPS-verified crop stage.</p>
+              <p className="esc-explain__box-title">🌾 Stage-wise Advances</p>
+              <p className="esc-explain__box-text">A small ~30% advance funds cultivation, unlocked slice-by-slice as the farmer proves each GPS-verified crop stage.</p>
             </div>
             <div className="esc-explain__box esc-explain__box--blue">
               <p className="esc-explain__box-title">⚖️ Market Settlement</p>
-              <p className="esc-explain__box-text">At harvest the farmer gets the higher of offered vs market price. Buffer excess refunded to buyer.</p>
+              <p className="esc-explain__box-text">At harvest the ~70% balance settles at the live market price on the quantity actually delivered. All unused locked funds are refunded to the buyer.</p>
             </div>
           </div>
         </div>
@@ -237,7 +244,7 @@ export default function EscrowPage() {
                         { label: "Contract Value",  value: `₹${contractVal.toLocaleString("en-IN")}`,       cls: "esc-fact--gray" },
                         { label: `${bufferMargin.toFixed(0)}% Buffer`, value: `₹${buffer.toLocaleString("en-IN")}`, cls: "esc-fact--yellow" },
                         { label: `Total Locked (${lockedPct.toFixed(0)}%)`, value: `₹${totalLocked.toLocaleString("en-IN")}`, cls: "esc-fact--orange" },
-                        { label: "Advance (15%)",    value: `₹${advance.toLocaleString("en-IN")}`,           cls: "esc-fact--blue" },
+                        { label: "Advance (5%)",     value: `₹${advance.toLocaleString("en-IN")}`,           cls: "esc-fact--blue" },
                       ].map((r) => (
                         <div key={r.label} className={`esc-fact ${r.cls}`}>
                           <p className="esc-fact__label">{r.label}</p>
@@ -355,6 +362,11 @@ export default function EscrowPage() {
                         settling === e.contract_id ? (
                           <div className="esc-settle">
                             <div className="esc-settle__row">
+                              <input type="number" value={deliveredQty}
+                                onChange={(ev) => setDeliveredQty(ev.target.value)}
+                                placeholder={`Delivered (t) — agreed ${parseFloat(e.quantity) || 0}`}
+                                max={parseFloat(e.quantity) || undefined}
+                                className="esc-settle__input"/>
                               <input type="number" value={marketPrice}
                                 onChange={(ev) => setMarketPrice(ev.target.value)}
                                 placeholder="Market price ₹/quintal"
@@ -363,10 +375,10 @@ export default function EscrowPage() {
                                 className="esc-settle__autofill">
                                 {fetchingPrice ? "Fetching…" : "📈 Autofill live price"}
                               </button>
-                              <button onClick={() => settle(e.contract_id)} className="esc-settle__confirm">
+                              <button onClick={() => settle(e)} className="esc-settle__confirm">
                                 Confirm
                               </button>
-                              <button onClick={() => { setSettling(null); setMarketPrice(""); setPriceInfo(null); }}
+                              <button onClick={() => { setSettling(null); setMarketPrice(""); setDeliveredQty(""); setPriceInfo(null); }}
                                 className="esc-cancel">Cancel</button>
                             </div>
                             {priceInfo && (
@@ -376,7 +388,7 @@ export default function EscrowPage() {
                             )}
                           </div>
                         ) : (
-                          <button onClick={() => { setSettling(e.contract_id); setMarketPrice(""); setPriceInfo(null); }}
+                          <button onClick={() => { setSettling(e.contract_id); setMarketPrice(""); setDeliveredQty(String(parseFloat(e.quantity) || "")); setPriceInfo(null); }}
                             className="esc-btn--settle">
                             ⚖️ Settle at Market Price
                           </button>

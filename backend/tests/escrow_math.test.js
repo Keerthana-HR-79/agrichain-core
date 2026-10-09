@@ -2,27 +2,33 @@
  * AgriChain — Escrow money-math invariants
  * ========================================
  * Pure-arithmetic replica of the escrow flow in controllers/escrowController.js
- * (accept → advance → stage milestones → market settlement). No DB required.
+ * (accept → small staged advances → market settlement on delivered quantity).
+ * No DB required.
  *
- * It proves the financial core is SOUND across every market scenario:
- *   • farmer is paid the higher of contracted vs live mandi price,
- *   • the payout is capped at the buyer's locked 110% (the 10% buffer),
- *   • nothing is ever released beyond what was locked,
- *   • money is conserved: released_to_farmer + refunded_to_buyer == total_locked.
+ * It proves the financial core is SOUND across every scenario:
+ *   • settlement = live market price × the quantity ACTUALLY delivered,
+ *   • payout is capped at the buyer's locked 110% (the 10% buffer),
+ *   • the buyer never pays for crop that wasn't delivered (shortfall → refund),
+ *   • money is conserved: released_to_farmer + refunded_to_buyer == total_locked,
+ *   • only a catastrophic harvest (delivered value < the ~30% advanced) leaves the
+ *     farmer "over-advanced" — flagged, never clawed back.
+ *
+ * NOTE: unlike the old design, the farmer has NO price floor — a fair,
+ * market-neutral settlement. These formulas MUST stay in lock-step with
+ * escrowController.js.
  *
  * Run:  node tests/escrow_math.test.js
- * These formulas MUST stay in lock-step with escrowController.js.
  */
 
 // ── Constants mirrored from escrowController.js ───────────────────────────────
 const BUFFER_FACTOR = 1.10; // total_locked = 110% of contract value
 const MILESTONE_SCHEDULE = [
-  { order: 1, kind: "advance",  pct: 15 },
-  { order: 2, kind: "progress", pct: 15 },
-  { order: 3, kind: "progress", pct: 20 },
-  { order: 4, kind: "progress", pct: 20 },
+  { order: 1, kind: "advance",  pct: 5 },
+  { order: 2, kind: "progress", pct: 5 },
+  { order: 3, kind: "progress", pct: 5 },
+  { order: 4, kind: "progress", pct: 5 },
   { order: 5, kind: "progress", pct: 10 },
-];
+]; // 30% advanced progressively; ~70% settled at harvest
 
 const EPS = 1e-6;
 let passed = 0, failed = 0;
@@ -34,13 +40,13 @@ function check(name, cond, detail = "") {
 
 /**
  * Simulate one full contract lifecycle.
- * @param quantity      tonnes
- * @param offeredPrice  ₹/quintal (contracted)
- * @param marketPrice   ₹/quintal (live mandi at settlement)
- * @param releaseUpTo   how many milestones (by order) are released before settle
- *                      (1 = advance only; 5 = advance + all 4 progress stages)
+ * @param quantity          tonnes contracted
+ * @param offeredPrice      ₹/quintal (contracted — used only for the locked amount)
+ * @param marketPrice       ₹/quintal (live mandi at settlement)
+ * @param releaseUpTo       how many milestones (by order) are advanced before settle
+ * @param deliveredQuantity tonnes actually delivered (defaults to the full quantity)
  */
-function runContract({ quantity, offeredPrice, marketPrice, releaseUpTo }) {
+function runContract({ quantity, offeredPrice, marketPrice, releaseUpTo, deliveredQuantity }) {
   // ── At accept (createEscrowOnAccept) ────────────────────────────────────────
   const contract_value = quantity * offeredPrice * 10;       // 10 quintals / tonne
   const total_locked   = contract_value * BUFFER_FACTOR;
@@ -49,124 +55,136 @@ function runContract({ quantity, offeredPrice, marketPrice, releaseUpTo }) {
     ...m, amount: contract_value * (m.pct / 100), status: "locked",
   }));
 
-  // ── Progressive releases (releaseAdvance + releaseMilestone) ────────────────
+  // ── Progressive advances (releaseAdvance + releaseMilestone) ────────────────
   let released_to_farmer = 0;
   for (const m of milestones) {
     if (m.order <= releaseUpTo) { m.status = "released"; released_to_farmer += m.amount; }
   }
 
-  // ── Market settlement (settleEscrow) — capped at the buffer ceiling ─────────
-  const quantity_quintals = quantity * 10;
-  const desired_price     = Math.max(offeredPrice, marketPrice);
-  const gross_payment     = Math.min(desired_price * quantity_quintals, total_locked);
-  const buffer_capped     = desired_price * quantity_quintals > total_locked;
-  const effective_price   = gross_payment / quantity_quintals;
-  const already_paid      = released_to_farmer;
-  const balance_due       = Math.max(0, gross_payment - already_paid);
-  const refund_to_buyer   = Math.max(0, total_locked - gross_payment);
-  const market_adjustment = Math.max(0, gross_payment - contract_value);
+  // ── Market settlement (settleEscrow): market price × delivered quantity ─────
+  const agreed_quantity    = quantity;
+  const delivered_tonnes   = Math.max(0, Math.min(
+    deliveredQuantity != null ? deliveredQuantity : agreed_quantity, agreed_quantity));
+  const delivered_quintals = delivered_tonnes * 10;
+
+  const crop_value      = delivered_quintals * marketPrice;              // pure market × delivered
+  const gross_payment   = Math.min(crop_value, total_locked);           // capped at locked
+  const buffer_capped   = crop_value > total_locked;
+  const effective_price = delivered_quintals > 0 ? gross_payment / delivered_quintals : 0;
+
+  const already_paid    = released_to_farmer;
+  const balance_due     = Math.max(0, gross_payment - already_paid);
+  const over_advance    = Math.max(0, already_paid - gross_payment);
+  const refund_to_buyer = Math.max(0, total_locked - Math.max(gross_payment, already_paid));
 
   released_to_farmer += balance_due; // escrow.released_to_farmer after settle
 
   return {
-    contract_value, total_locked, buffer_amount, gross_payment, effective_price,
-    buffer_capped, already_paid, balance_due, refund_to_buyer, market_adjustment,
-    released_to_farmer,
+    contract_value, total_locked, buffer_amount, agreed_quantity, delivered_tonnes,
+    crop_value, gross_payment, effective_price, buffer_capped,
+    already_paid, balance_due, over_advance, refund_to_buyer, released_to_farmer,
   };
 }
 
 // ── Invariants asserted for EVERY scenario ────────────────────────────────────
 function assertInvariants(label, inp, r) {
-  const desired = Math.max(inp.offeredPrice, inp.marketPrice) * inp.quantity * 10;
-
   // 1. Money conservation — nothing created or destroyed.
   check(`[${label}] conservation`,
     approx(r.released_to_farmer + r.refund_to_buyer, r.total_locked),
     `released ${r.released_to_farmer.toFixed(2)} + refund ${r.refund_to_buyer.toFixed(2)} != locked ${r.total_locked.toFixed(2)}`);
 
-  // 2. Soundness — never release more than was locked.
+  // 2. Soundness — never pay out more than was locked.
   check(`[${label}] payout ≤ locked`,
-    r.gross_payment <= r.total_locked + EPS,
-    `gross ${r.gross_payment.toFixed(2)} > locked ${r.total_locked.toFixed(2)}`);
+    r.gross_payment <= r.total_locked + EPS && r.released_to_farmer <= r.total_locked + EPS,
+    `gross ${r.gross_payment.toFixed(2)} / released ${r.released_to_farmer.toFixed(2)} > locked ${r.total_locked.toFixed(2)}`);
 
-  // 3. Farmer receives exactly the settled gross (all milestones + balance).
-  check(`[${label}] farmer paid == gross`,
-    approx(r.released_to_farmer, r.gross_payment),
-    `released ${r.released_to_farmer.toFixed(2)} != gross ${r.gross_payment.toFixed(2)}`);
-
-  // 4. Farmer gets the higher of offered/market, capped at the 110% ceiling.
-  check(`[${label}] higher-of price, capped`,
-    approx(r.gross_payment, Math.min(desired, r.total_locked)));
-
-  // 5. No negative money anywhere.
+  // 3. No negative money anywhere.
   check(`[${label}] non-negative`,
-    r.balance_due >= -EPS && r.refund_to_buyer >= -EPS && r.market_adjustment >= -EPS);
+    r.balance_due >= -EPS && r.refund_to_buyer >= -EPS && r.over_advance >= -EPS && r.gross_payment >= -EPS);
 
-  // 6. Farmer never worse off than the contracted value.
-  check(`[${label}] farmer ≥ contract value`,
-    r.released_to_farmer >= r.contract_value - EPS,
-    `got ${r.released_to_farmer.toFixed(2)} < contract ${r.contract_value.toFixed(2)}`);
+  // 4. Settlement = market price × delivered quantity, capped at the 110% ceiling.
+  check(`[${label}] gross == min(market×delivered, locked)`,
+    approx(r.gross_payment, Math.min(inp.marketPrice * r.delivered_tonnes * 10, r.total_locked)));
+
+  if (r.over_advance <= EPS) {
+    // 5. Normal case — farmer is paid exactly the (capped) market value delivered.
+    check(`[${label}] farmer paid == gross (no over-advance)`,
+      approx(r.released_to_farmer, r.gross_payment),
+      `released ${r.released_to_farmer.toFixed(2)} != gross ${r.gross_payment.toFixed(2)}`);
+    // 6. Buyer's net cost == what they got; the rest comes back.
+    check(`[${label}] buyer refund == locked − gross`,
+      approx(r.refund_to_buyer, r.total_locked - r.gross_payment));
+  } else {
+    // Catastrophic harvest: farmer keeps the advances (can't claw back), buyer
+    // refunded everything not already paid out.
+    check(`[${label}] over-advance: farmer keeps advances`,
+      approx(r.released_to_farmer, r.already_paid));
+    check(`[${label}] over-advance: refund == locked − advances`,
+      approx(r.refund_to_buyer, r.total_locked - r.already_paid));
+  }
 }
 
 // ── Scenarios ─────────────────────────────────────────────────────────────────
-console.log("AgriChain escrow money-math invariants\n");
+console.log("AgriChain escrow money-math invariants (market × delivered)\n");
 
-const base = { quantity: 10, offeredPrice: 2000 }; // 10t @ ₹2000/Q → CV ₹2,00,000
+const base = { quantity: 10, offeredPrice: 2000 }; // 10t @ ₹2000/Q → CV ₹2,00,000, locked ₹2,20,000
 
 const scenarios = [
-  // market BELOW contracted → farmer keeps contracted price, full 10% refunded
-  { label: "market < offered (advance only)",  ...base, marketPrice: 1500, releaseUpTo: 1 },
-  { label: "market < offered (all stages)",    ...base, marketPrice: 1500, releaseUpTo: 5 },
-  // market EQUAL → contracted price, full buffer refunded
-  { label: "market == offered",                ...base, marketPrice: 2000, releaseUpTo: 3 },
-  // market ABOVE but WITHIN the 10% buffer → farmer gains, partial refund
-  { label: "market +5% (within buffer)",       ...base, marketPrice: 2100, releaseUpTo: 5 },
-  // market EXACTLY at the buffer ceiling → farmer gets 110%, zero refund
-  { label: "market +10% (buffer boundary)",    ...base, marketPrice: 2200, releaseUpTo: 5 },
-  // market ABOVE the buffer → capped at 110%, cap flag set, zero refund
-  { label: "market +25% (cap binds)",          ...base, marketPrice: 2500, releaseUpTo: 5 },
-  { label: "market +100% (hard cap)",          ...base, marketPrice: 4000, releaseUpTo: 2 },
+  // Full delivery, varying market price
+  { label: "full, market == offered",        ...base, marketPrice: 2000, releaseUpTo: 5 },
+  { label: "full, market falls 25%",         ...base, marketPrice: 1500, releaseUpTo: 5 },
+  { label: "full, market +5% (within buffer)",...base, marketPrice: 2100, releaseUpTo: 5 },
+  { label: "full, market +10% (boundary)",    ...base, marketPrice: 2200, releaseUpTo: 5 },
+  { label: "full, market +25% (cap binds)",   ...base, marketPrice: 2500, releaseUpTo: 5 },
+  // Quantity shortfall (the buyer-protection case)
+  { label: "shortfall 6/10t, market stable",  ...base, marketPrice: 2000, releaseUpTo: 5, deliveredQuantity: 6 },
+  { label: "shortfall 3/10t, market stable",  ...base, marketPrice: 2000, releaseUpTo: 3, deliveredQuantity: 3 },
+  // Catastrophic harvest — advances exceed delivered value
+  { label: "catastrophe 2/10t (over-advanced)", ...base, marketPrice: 2000, releaseUpTo: 5, deliveredQuantity: 2 },
+  { label: "total crop failure 0t",           ...base, marketPrice: 2000, releaseUpTo: 5, deliveredQuantity: 0 },
 ];
 
 for (const s of scenarios) {
-  const r = runContract(s);
-  assertInvariants(s.label, s, r);
+  assertInvariants(s.label, s, runContract(s));
 }
 
-// ── Targeted expectations on the boundary cases ───────────────────────────────
+// ── Targeted expectations on the key cases ────────────────────────────────────
 {
-  const r = runContract({ ...base, marketPrice: 1500, releaseUpTo: 1 });
-  check("below-market: refund == full buffer (10%)",
-    approx(r.refund_to_buyer, r.buffer_amount));
-  check("below-market: cap NOT triggered", r.buffer_capped === false);
-  check("below-market: farmer == contract value",
-    approx(r.released_to_farmer, r.contract_value));
+  // Price falls → farmer gets the LOWER market value (no floor); buyer pays real worth.
+  const r = runContract({ ...base, marketPrice: 1500, releaseUpTo: 5 });
+  check("fall: farmer == market value delivered", approx(r.released_to_farmer, 1500 * 10 * 10));
+  check("fall: farmer BELOW contract value (no floor)", r.released_to_farmer < r.contract_value - EPS);
+  check("fall: no over-advance", approx(r.over_advance, 0));
 }
 {
+  // Price spikes past the buffer → farmer capped at 110%, zero refund.
   const r = runContract({ ...base, marketPrice: 2500, releaseUpTo: 5 });
-  check("above-buffer: cap IS triggered", r.buffer_capped === true);
-  check("above-buffer: farmer == total_locked (110%)",
-    approx(r.released_to_farmer, r.total_locked));
-  check("above-buffer: refund == 0", approx(r.refund_to_buyer, 0));
-  check("above-buffer: effective price == 110% of offered",
-    approx(r.effective_price, base.offeredPrice * BUFFER_FACTOR));
+  check("spike: cap triggered", r.buffer_capped === true);
+  check("spike: farmer == total_locked (110%)", approx(r.released_to_farmer, r.total_locked));
+  check("spike: refund == 0", approx(r.refund_to_buyer, 0));
+  check("spike: effective price == 110% of offered", approx(r.effective_price, base.offeredPrice * BUFFER_FACTOR));
 }
 {
-  const r = runContract({ ...base, marketPrice: 2100, releaseUpTo: 5 });
-  check("within-buffer: farmer == market gross",
-    approx(r.released_to_farmer, 2100 * base.quantity * 10));
-  check("within-buffer: partial refund remains",
-    r.refund_to_buyer > 0 && r.refund_to_buyer < r.buffer_amount);
+  // Shortfall → buyer pays ONLY for what was delivered; refund exceeds the buffer.
+  const r = runContract({ ...base, marketPrice: 2000, releaseUpTo: 5, deliveredQuantity: 6 });
+  check("shortfall: buyer pays delivered value only", approx(r.released_to_farmer, 2000 * 6 * 10));
+  check("shortfall: refund > buffer (undelivered returned)", r.refund_to_buyer > r.buffer_amount + EPS);
+  check("shortfall: no over-advance at 6/10t", approx(r.over_advance, 0));
 }
-// Independence of the release path: settlement lands identically no matter how
-// many milestones were released beforehand (proves the already_paid fix).
+{
+  // Catastrophe → farmer over-advanced, flagged; conservation still holds.
+  const r = runContract({ ...base, marketPrice: 2000, releaseUpTo: 5, deliveredQuantity: 2 });
+  check("catastrophe: over-advance flagged", r.over_advance > EPS);
+  check("catastrophe: over-advance == advances − crop value", approx(r.over_advance, 60000 - 40000));
+  check("catastrophe: conservation holds", approx(r.released_to_farmer + r.refund_to_buyer, r.total_locked));
+}
+// Path-independence: with no over-advance, settlement lands identically no matter
+// how many advances were released beforehand.
 {
   const a = runContract({ ...base, marketPrice: 2100, releaseUpTo: 1 });
   const b = runContract({ ...base, marketPrice: 2100, releaseUpTo: 5 });
-  check("path-independence: same farmer payout",
-    approx(a.released_to_farmer, b.released_to_farmer));
-  check("path-independence: same refund",
-    approx(a.refund_to_buyer, b.refund_to_buyer));
+  check("path-independence: same farmer payout", approx(a.released_to_farmer, b.released_to_farmer));
+  check("path-independence: same refund", approx(a.refund_to_buyer, b.refund_to_buyer));
 }
 
 // ── Result ────────────────────────────────────────────────────────────────────

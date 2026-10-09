@@ -12,10 +12,11 @@
  *
  * 2. 110% Buffer
  *    Buyer commits 110% of contract value at acceptance:
- *      - 15% released as cultivation advance immediately
- *      - 85% held until harvest
- *      - Extra 10% buffer covers market price exceeding contracted price
- *    At settlement the excess buffer is refunded to buyer.
+ *      - ~30% released as small GPS-verified advances during growth
+ *      - the rest held until harvest
+ *      - Extra 10% buffer covers the market price rising above the contracted price
+ *    At settlement the deal is priced at the live market rate on the quantity
+ *    actually delivered, and all unused locked funds are refunded to the buyer.
  *
  * 3. Append-only escrow_ledger
  *    Every money movement = one INSERT, never an UPDATE.
@@ -37,26 +38,27 @@ const pool = require("../config/db");
 // ─────────────────────────────────────────────────────────────────────────────
 // STAGE-BASED RELEASE SCHEDULE (Phase 4)
 // ─────────────────────────────────────────────────────────────────────────────
-// The buyer's 110% buffer is locked at accept-time. Instead of a single advance
-// + final settlement, funds are released to the farmer in stages as each crop
-// stage is proven with a GPS-tagged photo. Percentages are of the CONTRACT value.
+// The buyer's 110% buffer is locked at accept-time. Only a SMALL advance (~30%)
+// trickles out as working capital while the crop grows — each slice unlocked by a
+// GPS-tagged stage photo. Percentages are of the CONTRACT value.
 //
-//   order 1  Cultivation Advance   15%  — released up-front (funds the sowing)
-//   order 2  Sowing Verified       15%  — needs a "Sowing" crop-stage photo
-//   order 3  Vegetative Growth     20%  — needs a "Vegetative Growth" photo
-//   order 4  Flowering Verified    20%  — needs a "Flowering" photo
+//   order 1  Cultivation Advance    5%  — released up-front (funds the sowing)
+//   order 2  Sowing Verified        5%  — needs a "Sowing" crop-stage photo
+//   order 3  Vegetative Growth      5%  — needs a "Vegetative Growth" photo
+//   order 4  Flowering Verified     5%  — needs a "Flowering" photo
 //   order 5  Pre-Harvest Verified  10%  — needs a "Pre Harvest" photo
 //                                  ───
-//                                   80%  released progressively
+//                                   30%  advanced progressively
 //
-// The remaining ~20% is paid at harvest by settleEscrow (market-adjusted, i.e.
-// farmer gets the higher of contracted vs live mandi price), which also refunds
-// the 10% buffer. stage_name must match crop_stages.stage_name exactly.
+// The remaining ~70% is settled at harvest by settleEscrow at the LIVE market
+// price on the quantity ACTUALLY delivered — fair to both sides (no price floor,
+// and the buyer never pays for crop that wasn't delivered). Unused locked funds
+// are refunded to the buyer. stage_name must match crop_stages.stage_name.
 const MILESTONE_SCHEDULE = [
-  { order: 1, kind: "advance",  stage_name: null,                label: "Cultivation Advance",  pct: 15 },
-  { order: 2, kind: "progress", stage_name: "Sowing",            label: "Sowing Verified",      pct: 15 },
-  { order: 3, kind: "progress", stage_name: "Vegetative Growth", label: "Vegetative Growth",    pct: 20 },
-  { order: 4, kind: "progress", stage_name: "Flowering",         label: "Flowering Verified",   pct: 20 },
+  { order: 1, kind: "advance",  stage_name: null,                label: "Cultivation Advance",  pct: 5 },
+  { order: 2, kind: "progress", stage_name: "Sowing",            label: "Sowing Verified",      pct: 5 },
+  { order: 3, kind: "progress", stage_name: "Vegetative Growth", label: "Vegetative Growth",    pct: 5 },
+  { order: 4, kind: "progress", stage_name: "Flowering",         label: "Flowering Verified",   pct: 5 },
   { order: 5, kind: "progress", stage_name: "Pre Harvest",       label: "Pre-Harvest Verified", pct: 10 },
 ];
 
@@ -173,13 +175,13 @@ const createEscrowOnAccept = async (client, { contract_id, farmer_id }) => {
   // contract_value = quantity(tonnes) × price(₹/quintal) × 10 quintals/tonne.
   // The buyer chooses the buffer % at request time (default 10%, clamped 5–25%
   // in contractController). buffer_frac is that margin; total_locked adds it on
-  // top of the contract value. The 15% advance is still a % of contract value.
+  // top of the contract value. The advance is now just 5% of contract value.
   const buffer_frac     = Math.min(0.25, Math.max(0.05,
                             (parseFloat(contract.buffer_pct) || 10) / 100));
   const locked_pct      = 100 * (1 + buffer_frac);   // e.g. 110 for a 10% buffer
   const contract_value  = parseFloat(contract.quantity) * parseFloat(contract.offered_price) * 10;
   const total_locked    = contract_value * (1 + buffer_frac); // contract + buffer
-  const advance_amount  = contract_value * 0.15;   // 15% advance to farmer now
+  const advance_amount  = contract_value * 0.05;   // 5% cultivation advance to farmer now
   const buffer_amount   = contract_value * buffer_frac; // safety margin
   const pending_amount  = contract_value - advance_amount; // balance at harvest
 
@@ -326,7 +328,7 @@ const releaseAdvance = async (req, res) => {
         running_balance: new_balance,
         actor_id:        buyer_id,
         actor_role:      "buyer",
-        note:            `15% cultivation advance released to farmer. Ref ${payment.payment_ref}`,
+        note:            `5% cultivation advance released to farmer. Ref ${payment.payment_ref}`,
         payment_ref:     payment.payment_ref,
       });
 
@@ -537,7 +539,7 @@ const settleEscrow = async (req, res) => {
   try {
     const buyer_id              = req.user.id;
     const { contract_id }       = req.params;
-    const { market_price_per_quintal } = req.body;
+    const { market_price_per_quintal, delivered_quantity } = req.body;
     const idem_key              = req.headers["x-idempotency-key"] ||
                                   `settle-${contract_id}-${buyer_id}`;
 
@@ -583,43 +585,50 @@ const settleEscrow = async (req, res) => {
         );
       }
 
-      // ── Market settlement logic ───────────────────────────────────────────
-      // Farmer gets whichever is HIGHER: offered or market price — but the
-      // escrow can never pay out more than the buyer actually locked (contract
-      // value + the buyer's chosen buffer). The buffer IS the market-upside
-      // headroom, so the effective price is capped at the buffer ceiling. This
-      // keeps the escrow sound (payout ≤ locked) and the ledger balanced to zero.
-      const offered_price     = parseFloat(c.offered_price);
-      const market_price      = parseFloat(market_price_per_quintal);
-      const quantity_quintals = parseFloat(c.quantity) * 10;
-      const total_locked      = parseFloat(c.total_locked);
-      const contract_value    = offered_price * quantity_quintals;
+      // ── Market settlement logic (fair: market price × delivered quantity) ──
+      // The deal settles at the LIVE market price on the quantity ACTUALLY
+      // delivered — not the contracted price, not the agreed quantity. The buyer
+      // pays the real worth of what they received; the farmer is paid the real
+      // worth of what they grew. Two guards keep the escrow sound:
+      //   • payout is capped at total_locked (the buyer never owes more than the
+      //     110% they locked — that buffer is the price-rise headroom), and
+      //   • delivered quantity is capped at the agreed quantity (that's all the
+      //     buyer contracted to buy).
+      // The ~30% already advanced over the stages is reconciled against this and
+      // the rest of the locked funds is refunded. If a catastrophic harvest means
+      // the advances exceeded the crop's value, the excess can't be clawed back —
+      // it's flagged (over_advance) and resolved via dispute.
+      const market_price       = parseFloat(market_price_per_quintal);
+      const agreed_quantity    = parseFloat(c.quantity);                        // tonnes contracted
+      const dq_raw             = (delivered_quantity != null && delivered_quantity !== "" && !isNaN(delivered_quantity))
+                                   ? parseFloat(delivered_quantity) : agreed_quantity;
+      const delivered_tonnes   = Math.max(0, Math.min(dq_raw, agreed_quantity)); // never more than contracted
+      const delivered_quintals = delivered_tonnes * 10;
+      const total_locked       = parseFloat(c.total_locked);
 
-      const desired_price     = Math.max(offered_price, market_price);       // higher of the two
-      const gross_payment     = Math.min(desired_price * quantity_quintals,  // capped at locked funds
-                                         total_locked);
-      const buffer_capped     = desired_price * quantity_quintals > total_locked;
-      const effective_price   = gross_payment / quantity_quintals;           // price actually honored
+      const crop_value         = delivered_quintals * market_price;             // pure market × delivered
+      const gross_payment      = Math.min(crop_value, total_locked);            // capped at locked funds
+      const buffer_capped      = crop_value > total_locked;                     // price spiked past the buffer
+      const effective_price    = delivered_quintals > 0 ? gross_payment / delivered_quintals : 0;
 
-      // already_paid = everything released so far (advance + any stage milestones).
-      // Sourced from escrow.released_to_farmer, the single cumulative source of
-      // truth — so the final balance is correct no matter how many partial
-      // stage releases happened along the way.
-      const already_paid      = parseFloat(c.released_to_farmer || 0);
-      const balance_due       = Math.max(0, gross_payment - already_paid);
-      const refund_to_buyer   = Math.max(0, total_locked - gross_payment);
-      const market_adjustment = Math.max(0, gross_payment - contract_value); // farmer's benefit over contracted
-      const payment           = mockPayment();
+      // already_paid = everything released so far (advance + stage milestones),
+      // from escrow.released_to_farmer — the single cumulative source of truth.
+      const already_paid       = parseFloat(c.released_to_farmer || 0);
+      const balance_due        = Math.max(0, gross_payment - already_paid);     // top the farmer up to crop value
+      const over_advance       = Math.max(0, already_paid - gross_payment);     // advanced > crop value (crop failure)
+      const refund_to_buyer    = Math.max(0, total_locked - Math.max(gross_payment, already_paid));
+      const payment            = mockPayment();
 
-      // Update contract
+      // Update contract — record the market rate used + the actual delivered yield
       await client.query(
         `UPDATE contracts
          SET status = 'completed',
              market_price_at_settlement = $1,
              final_amount = $2,
+             harvest_actual_yield = $3,
              updated_at = NOW()
-         WHERE id = $3`,
-        [effective_price, gross_payment, contract_id]
+         WHERE id = $4`,
+        [market_price, gross_payment, delivered_tonnes, contract_id]
       );
 
       // Update escrow — increment (not overwrite) released_to_farmer by the
@@ -655,29 +664,27 @@ const settleEscrow = async (req, res) => {
         running_balance: refund_to_buyer,
         actor_id:        buyer_id,
         actor_role:      "buyer",
-        note: `Final settlement at ₹${effective_price.toFixed(0)}/Q (${
-          buffer_capped ? "market rate, capped at 110% buffer ceiling"
-            : market_price > offered_price ? "market rate" : "contracted rate"
-        }). Gross: ₹${gross_payment.toFixed(0)}, balance now: ₹${balance_due.toFixed(0)}. Ref ${payment.payment_ref}`,
+        note: `Final settlement: ${delivered_tonnes}t delivered at ₹${effective_price.toFixed(0)}/Q${
+          buffer_capped ? " (capped at the 110% buffer ceiling)" : ""
+        }. Crop value ₹${gross_payment.toFixed(0)}, balance paid ₹${balance_due.toFixed(0)}. Ref ${payment.payment_ref}`,
         payment_ref:     payment.payment_ref,
       });
 
-      // Ledger: market_adjustment (if market > offered)
-      if (market_adjustment > 0) {
+      // Ledger: over-advance flag (catastrophic harvest — advances > crop value)
+      if (over_advance > 0) {
         await ledgerInsert(client, {
           escrow_id:       c.escrow_id,
           contract_id,
-          entry_type:      "market_adjustment",
-          amount:          market_adjustment,
+          entry_type:      "over_advance",
+          amount:          over_advance,
           running_balance: refund_to_buyer,
           actor_id:        null,
           actor_role:      "system",
-          note: `Market ₹${market_price}/Q > contracted ₹${offered_price}/Q. Farmer benefit: ₹${market_adjustment.toFixed(0)}${
-            buffer_capped ? " (capped at 10% escrow buffer)" : ""}`,
+          note: `⚠️ Advances (₹${already_paid.toFixed(0)}) exceeded delivered crop value (₹${gross_payment.toFixed(0)}) by ₹${over_advance.toFixed(0)} — short/low harvest. Not clawed back; raise a dispute if contested.`,
         });
       }
 
-      // Ledger: buffer_refund (if any)
+      // Ledger: refund of all unused locked funds to the buyer
       if (refund_to_buyer > 0) {
         await ledgerInsert(client, {
           escrow_id:       c.escrow_id,
@@ -687,7 +694,7 @@ const settleEscrow = async (req, res) => {
           running_balance: 0,
           actor_id:        buyer_id,
           actor_role:      "buyer",
-          note: `110% buffer excess refunded to buyer: ₹${refund_to_buyer.toFixed(0)}`,
+          note: `Unused escrow refunded to buyer: ₹${refund_to_buyer.toFixed(0)} (locked ₹${total_locked.toFixed(0)} − crop value ₹${gross_payment.toFixed(0)})`,
         });
       }
 
@@ -703,11 +710,7 @@ const settleEscrow = async (req, res) => {
         [
           c.farmer_id,
           "Final Payment Settled 💰",
-          `${crop_name} settled at ₹${effective_price.toFixed(0)}/Q${
-            market_price > offered_price
-              ? ` — market rate applied! Extra ₹${market_adjustment.toFixed(0)}`
-              : ""
-          }. Total: ₹${gross_payment.toLocaleString("en-IN")}`,
+          `${crop_name}: ${delivered_tonnes}t delivered, settled at the ₹${effective_price.toFixed(0)}/Q market rate. You received ₹${gross_payment.toLocaleString("en-IN")} in total.`,
           "payment_released", contract_id, "contract",
         ]
       );
@@ -719,8 +722,8 @@ const settleEscrow = async (req, res) => {
            VALUES ($1,$2,$3,$4,$5,$6)`,
           [
             buyer_id,
-            "Buffer Refund Processed 💸",
-            `₹${refund_to_buyer.toLocaleString("en-IN")} from your 110% escrow buffer has been refunded.`,
+            "Escrow Refund Processed 💸",
+            `₹${refund_to_buyer.toLocaleString("en-IN")} of unused locked funds has been refunded to you.`,
             "payment_released", contract_id, "contract",
           ]
         );
@@ -729,14 +732,17 @@ const settleEscrow = async (req, res) => {
       const outcome = {
         success:           true,
         effective_price,
+        delivered_tonnes,
+        agreed_quantity,
+        crop_value,
         gross_payment,
         already_paid,
         balance_due,
-        market_adjustment,
+        over_advance,
         refund_to_buyer,
         buffer_capped,
         payment_ref:       payment.payment_ref,
-        settlement_type:   market_price > offered_price ? "market_rate" : "contracted_rate",
+        settlement_type:   "market_on_delivered",
       };
 
       await saveIdempotencyResult(client, idem_key, buyer_id, outcome);

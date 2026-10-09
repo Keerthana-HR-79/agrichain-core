@@ -47,9 +47,9 @@ const generateContractPDF = async (req, res) => {
     const qty        = parseFloat(c.quantity || 0);
     const price      = parseFloat(c.offered_price || 0);
     const totalValue = qty * price * 10;           // quantity(t) × price(₹/Q) × 10 Q/t
-    const advance    = totalValue * 0.15;          // milestone 1  — cultivation advance
-    const stageRel   = totalValue * 0.65;          // milestones 2-5 — GPS-verified stages
-    const finalBal   = totalValue * 0.20;          // paid at harvest (market-adjusted)
+    const advance    = totalValue * 0.05;          // milestone 1  — cultivation advance
+    const stageRel   = totalValue * 0.25;          // milestones 2-5 — GPS-verified stages
+    const finalBal   = totalValue * 0.70;          // settled at harvest (market × delivered)
     const buffer     = totalValue * 0.10;          // 10% market-upside headroom
     const totalLock  = totalValue * 1.10;          // buyer locks 110%
 
@@ -208,18 +208,19 @@ const generateContractPDF = async (req, res) => {
   <div class="section-title">Stage-Based Payment Schedule</div>
   <table>
     <tr><th>Milestone</th><th>Trigger</th><th>Release</th><th>Amount</th></tr>
-    <tr><td>1. Cultivation Advance</td><td>On contract acceptance</td><td>15%</td><td>${inr(advance)}</td></tr>
-    <tr><td>2. Sowing Verified</td><td>GPS-tagged "Sowing" photo</td><td>15%</td><td>${inr(totalValue * 0.15)}</td></tr>
-    <tr><td>3. Vegetative Growth</td><td>GPS-tagged "Vegetative Growth" photo</td><td>20%</td><td>${inr(totalValue * 0.20)}</td></tr>
-    <tr><td>4. Flowering Verified</td><td>GPS-tagged "Flowering" photo</td><td>20%</td><td>${inr(totalValue * 0.20)}</td></tr>
+    <tr><td>1. Cultivation Advance</td><td>On contract acceptance</td><td>5%</td><td>${inr(advance)}</td></tr>
+    <tr><td>2. Sowing Verified</td><td>GPS-tagged "Sowing" photo</td><td>5%</td><td>${inr(totalValue * 0.05)}</td></tr>
+    <tr><td>3. Vegetative Growth</td><td>GPS-tagged "Vegetative Growth" photo</td><td>5%</td><td>${inr(totalValue * 0.05)}</td></tr>
+    <tr><td>4. Flowering Verified</td><td>GPS-tagged "Flowering" photo</td><td>5%</td><td>${inr(totalValue * 0.05)}</td></tr>
     <tr><td>5. Pre-Harvest Verified</td><td>GPS-tagged "Pre Harvest" photo</td><td>10%</td><td>${inr(totalValue * 0.10)}</td></tr>
-    <tr><td><strong>Final Settlement</strong></td><td>At harvest — market-adjusted</td><td><strong>≈20%</strong></td><td><strong>${inr(finalBal)}</strong></td></tr>
+    <tr><td><strong>Final Settlement</strong></td><td>At harvest — market × delivered qty</td><td><strong>≈70%</strong></td><td><strong>${inr(finalBal)}</strong></td></tr>
   </table>
   <p class="clause" style="margin-top:10px">
-    Advance + stage releases pay out ${inr(advance + stageRel)} (80%) as the crop is proven.
-    The remaining balance is settled at harvest against the live mandi price${
+    Advance + stage releases pay out ${inr(advance + stageRel)} (30%) as the crop is proven.
+    The remaining ~70% is settled at harvest at the live market price on the quantity actually
+    delivered${
       liveMarket > 0 ? ` (current ${c.crop_name} reference: ₹${liveMarket}/quintal)` : ""
-    }, and the unused escrow buffer is refunded to the Buyer.
+    }, and all unused locked funds are refunded to the Buyer.
   </p>
 </div>
 ${isSettled ? `
@@ -233,10 +234,10 @@ ${isSettled ? `
     </div>
     <div class="fin-row" style="border-color:#bfdbfe;">
       <span class="fin-label">Settlement Basis</span>
-      <span class="fin-value">${settlePrice > price ? "Live market rate (higher than contracted)" : "Contracted rate"}</span>
+      <span class="fin-value">Live market price × delivered quantity</span>
     </div>
     <div class="fin-row" style="border-color:#bfdbfe;">
-      <span class="fin-label">Buffer Refunded to Buyer</span>
+      <span class="fin-label">Unused Escrow Refunded to Buyer</span>
       <span class="fin-value">${inr(buyerRefunded)}</span>
     </div>
     <div class="fin-row" style="color:#1e3a8a; border-color:#bfdbfe;">
@@ -250,18 +251,17 @@ ${isSettled ? `
 <div class="section">
   <div class="section-title">Terms and Conditions</div>
   <p class="clause"><span class="clause-num">1. ADVANCE PAYMENT:</span>
-    The Buyer shall release 15% of the total contract value (₹${advance.toLocaleString("en-IN")})
+    The Buyer shall release 5% of the total contract value (₹${advance.toLocaleString("en-IN")})
     as cultivation advance within 7 days of contract acceptance to support farming operations.</p>
   <p class="clause"><span class="clause-num">2. GPS VERIFICATION:</span>
     The Seller agrees to upload GPS-tagged crop growth stage photos at each of the five defined stages
     (Sowing, Early Growth, Vegetative Growth, Flowering, Pre-Harvest). All photos must be taken within
     500 meters of the registered farm location.</p>
   <p class="clause"><span class="clause-num">3. MARKET-BASED SETTLEMENT:</span>
-    Final payment shall be calculated at harvest using the prevailing APMC market price for
-    ${c.crop_name}. The Seller shall receive whichever is higher: the agreed price of
-    ₹${c.offered_price}/quintal or the live market price on the delivery date. Market upside is
-    honoured up to the 10% escrow buffer (a ceiling of ₹${(price * 1.10).toFixed(0)}/quintal);
-    any unused buffer is refunded to the Buyer at settlement.</p>
+    Final payment shall be calculated at harvest as the prevailing APMC market price for
+    ${c.crop_name} multiplied by the quantity actually delivered. The settlement price is capped
+    at the 10% escrow buffer (a ceiling of ₹${(price * 1.10).toFixed(0)}/quintal); the Buyer pays
+    only for the delivered quantity, and all unused locked funds are refunded at settlement.</p>
   <p class="clause"><span class="clause-num">4. QUALITY ASSURANCE:</span>
     The produce must meet standard quality parameters for ${c.crop_name} as per FSSAI guidelines.
     The Buyer has the right to inspect the produce before final acceptance.</p>
