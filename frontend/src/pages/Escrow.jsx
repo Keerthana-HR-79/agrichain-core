@@ -253,6 +253,26 @@ export default function EscrowPage() {
                       ))}
                     </div>
 
+                    {/* Seller trust (buyer's view) — proof the farm is genuine */}
+                    {user?.role === "buyer" && (
+                      <div className="esc-trust">
+                        <p className="esc-trust__label">🛡️ Seller Trust</p>
+                        <div className="esc-trust__row">
+                          <span className={`esc-trust__badge ${e.farm_verified ? "esc-trust__badge--ok" : "esc-trust__badge--warn"}`}>
+                            {e.farm_verified ? "✅ GPS-verified farm" : "⚠️ Farm not verified"}
+                          </span>
+                          <span className="esc-trust__item">⭐ {parseFloat(e.farmer_rating || 0).toFixed(1)} · {e.farmer_reviews || 0} review{Number(e.farmer_reviews) === 1 ? "" : "s"}</span>
+                          <span className="esc-trust__item">🤝 {e.farmer_completed_deals || 0} completed deal{Number(e.farmer_completed_deals) === 1 ? "" : "s"}</span>
+                          {e.farmer_since && <span className="esc-trust__item">📅 since {new Date(e.farmer_since).getFullYear()}</span>}
+                        </div>
+                        {!e.farm_verified && (
+                          <p className="esc-trust__note">
+                            Advance is locked until this farm's GPS location is verified — your money only moves to a location-proven seller.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Payment progress bar */}
                     <div className="esc-progress">
                       <div className="esc-progress__meta">
@@ -348,13 +368,20 @@ export default function EscrowPage() {
                         View Crop →
                       </Link>
 
-                      {/* Release advance (buyer only, pending status) */}
+                      {/* Release advance (buyer only) — gated on a GPS-verified farm */}
                       {user?.role === "buyer" && !e.advance_released && e.contract_status === "accepted" && (
-                        <button onClick={() => releaseAdvance(e.contract_id)}
-                          disabled={releasing === e.contract_id}
-                          className="esc-btn--advance">
-                          {releasing === e.contract_id ? "Releasing..." : "💸 Release Advance"}
-                        </button>
+                        e.farm_verified ? (
+                          <button onClick={() => releaseAdvance(e.contract_id)}
+                            disabled={releasing === e.contract_id}
+                            className="esc-btn--advance">
+                            {releasing === e.contract_id ? "Releasing..." : "💸 Release Advance"}
+                          </button>
+                        ) : (
+                          <span className="esc-mile__waiting"
+                            title="The farm's GPS location must be verified before any funds are released">
+                            🔒 Advance locked — farm not GPS-verified
+                          </span>
+                        )
                       )}
 
                       {/* Settle (buyer only, advance released) */}

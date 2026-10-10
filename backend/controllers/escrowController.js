@@ -249,15 +249,17 @@ const releaseAdvance = async (req, res) => {
       // Advisory lock
       await client.query("SELECT pg_advisory_xact_lock($1)", [parseInt(contract_id)]);
 
-      // Lock escrow + contract row together
+      // Lock escrow + contract row together (+ read the farm's verification state)
       const escrowRes = await client.query(
         `SELECT escrow.*, contracts.status AS contract_status,
                 contracts.dispute_status,
-                contracts.farmer_id, contracts.listing_id
+                contracts.farmer_id, contracts.listing_id,
+                listings.farm_verified
          FROM escrow
          JOIN contracts ON escrow.contract_id = contracts.id
+         JOIN listings  ON contracts.listing_id = listings.id
          WHERE escrow.contract_id = $1 AND escrow.buyer_id = $2
-         FOR UPDATE`,
+         FOR UPDATE OF escrow, contracts`,
         [contract_id, buyer_id]
       );
 
@@ -286,6 +288,20 @@ const releaseAdvance = async (req, res) => {
         throw Object.assign(
           new Error("Funds are frozen — this contract has an open dispute awaiting admin review"),
           { status: 423 }
+        );
+      }
+
+      // ── Fraud guard: proof-of-genuineness before ANY money leaves ───────────
+      // The cultivation advance only flows to a farm whose GPS location has been
+      // verified (OCR'd from the farm photo at listing time, or an admin check).
+      // An unverified / fake seller therefore cannot receive a single rupee — and
+      // every later release additionally needs a GPS-tagged stage photo taken at
+      // this same registered farm, so the most a fraudster can ever take is this
+      // small advance from a real, location-proven farm.
+      if (!escrow.farm_verified) {
+        throw Object.assign(
+          new Error("Advance locked — this farm isn't GPS-verified yet. Funds can only be released to a verified farm. Ask the farmer to upload a GPS-tagged farm photo, or wait for admin verification."),
+          { status: 400 }
         );
       }
 
@@ -830,7 +846,12 @@ const getMyEscrows = async (req, res) => {
     const result = await pool.query(
       `SELECT escrow.*,
               f.name AS farmer_name, b.name AS buyer_name,
-              listings.crop_name, listings.id AS listing_id,
+              f.avg_rating AS farmer_rating, f.total_reviews AS farmer_reviews,
+              f.created_at AS farmer_since,
+              (SELECT COUNT(*)::int FROM contracts cc
+                 WHERE cc.farmer_id = escrow.farmer_id AND cc.status = 'completed'
+              ) AS farmer_completed_deals,
+              listings.crop_name, listings.id AS listing_id, listings.farm_verified,
               contracts.quantity, contracts.offered_price,
               contracts.status AS contract_status,
               contracts.id AS contract_id,
