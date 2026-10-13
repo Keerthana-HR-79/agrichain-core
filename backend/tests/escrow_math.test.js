@@ -51,6 +51,11 @@ function runContract({ quantity, offeredPrice, marketPrice, releaseUpTo, deliver
   const contract_value = quantity * offeredPrice * 10;       // 10 quintals / tonne
   const total_locked   = contract_value * BUFFER_FACTOR;
   const buffer_amount  = contract_value * 0.10;
+  // Two-tranche funding: tranche 1 (30%) locked at accept funds the milestones;
+  // tranche 2 (70% + buffer) locked before harvest. They sum to total_locked.
+  const buffer_frac    = BUFFER_FACTOR - 1;                  // 0.10
+  const tranche1       = contract_value * 0.30;
+  const tranche2       = contract_value * (0.70 + buffer_frac);
   const milestones = MILESTONE_SCHEDULE.map((m) => ({
     ...m, amount: contract_value * (m.pct / 100), status: "locked",
   }));
@@ -81,6 +86,7 @@ function runContract({ quantity, offeredPrice, marketPrice, releaseUpTo, deliver
 
   return {
     contract_value, total_locked, buffer_amount, agreed_quantity, delivered_tonnes,
+    tranche1, tranche2,
     crop_value, gross_payment, effective_price, buffer_capped,
     already_paid, balance_due, over_advance, refund_to_buyer, released_to_farmer,
   };
@@ -105,6 +111,13 @@ function assertInvariants(label, inp, r) {
   // 4. Settlement = market price × delivered quantity, capped at the 110% ceiling.
   check(`[${label}] gross == min(market×delivered, locked)`,
     approx(r.gross_payment, Math.min(inp.marketPrice * r.delivered_tonnes * 10, r.total_locked)));
+
+  // 4b. Two-tranche funding: the two locks sum to the eventual total, and
+  // tranche 1 exactly covers the milestone advances (the 30% released in growth).
+  check(`[${label}] tranche1 + tranche2 == total_locked`,
+    approx(r.tranche1 + r.tranche2, r.total_locked));
+  const msSum = MILESTONE_SCHEDULE.reduce((s, m) => s + m.pct, 0) / 100 * r.contract_value;
+  check(`[${label}] tranche1 == sum of milestone %s`, approx(r.tranche1, msSum));
 
   if (r.over_advance <= EPS) {
     // 5. Normal case — farmer is paid exactly the (capped) market value delivered.

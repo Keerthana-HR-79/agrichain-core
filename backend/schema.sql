@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS escrow (
   refunded_to_buyer    NUMERIC(15,2) DEFAULT 0,
   status               VARCHAR(50)   DEFAULT 'pending',
   advance_released     BOOLEAN       DEFAULT false,
+  settlement_funded    BOOLEAN       DEFAULT false,
   advance_released_at  TIMESTAMP,
   locked_at            TIMESTAMP,
   settled_at           TIMESTAMP,

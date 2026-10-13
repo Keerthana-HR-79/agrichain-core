@@ -216,9 +216,10 @@ const generateContractPDF = async (req, res) => {
     <tr><td><strong>Final Settlement</strong></td><td>At harvest — market × delivered qty</td><td><strong>≈70%</strong></td><td><strong>${inr(finalBal)}</strong></td></tr>
   </table>
   <p class="clause" style="margin-top:10px">
-    Advance + stage releases pay out ${inr(advance + stageRel)} (30%) as the crop is proven.
-    The remaining ~70% is settled at harvest at the live market price on the quantity actually
-    delivered${
+    Funding is in two tranches: the Buyer locks the 30% milestone tranche at acceptance and the
+    ~70% + buffer settlement tranche before harvest. Advance + stage releases pay out ${inr(advance + stageRel)} (30%)
+    as the crop is proven. The remaining ~70% is settled at harvest at the live market price on the
+    quantity actually delivered${
       liveMarket > 0 ? ` (current ${c.crop_name} reference: ₹${liveMarket}/quintal)` : ""
     }, and all unused locked funds are refunded to the Buyer.
   </p>

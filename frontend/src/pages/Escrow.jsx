@@ -13,6 +13,7 @@ export default function EscrowPage() {
   const [releasing, setReleasing] = useState(null);
   const [releasingMs, setReleasingMs] = useState(null);
   const [settling, setSettling]   = useState(null);
+  const [fundingSettlement, setFundingSettlement] = useState(null);
   const [marketPrice, setMarketPrice] = useState("");
   const [deliveredQty, setDeliveredQty] = useState("");
   const [priceInfo, setPriceInfo] = useState(null);   // { source, note } from autofill
@@ -90,6 +91,24 @@ export default function EscrowPage() {
     } finally {
       setFetchingPrice(false);
     }
+  };
+
+  const fundSettlement = async (contractId) => {
+    if (!window.confirm(
+      "Lock the settlement funds now (the ~70% balance + buffer)? This secures the farmer's final payment and lets you settle at harvest."
+    )) return;
+    setFundingSettlement(contractId);
+    setError("");
+    try {
+      const res = await api.put(
+        `/escrow/contract/${contractId}/fund-settlement`,
+        {},
+        { headers: { "X-Idempotency-Key": `fund-${contractId}-${user.id}-${Date.now()}` } }
+      );
+      if (res.data.success) fetchEscrows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to fund settlement");
+    } finally { setFundingSettlement(null); }
   };
 
   const settle = async (e) => {
@@ -289,6 +308,17 @@ export default function EscrowPage() {
                       </div>
                     </div>
 
+                    {/* Two-tranche settlement funding status */}
+                    {e.advance_released && e.status !== "completed" && (
+                      <p className={`esc-fund-status ${e.settlement_funded ? "esc-fund-status--ok" : "esc-fund-status--wait"}`}>
+                        {e.settlement_funded
+                          ? "✅ Settlement funded — the balance is secured in escrow (safe to deliver)."
+                          : user?.role === "buyer"
+                            ? "⏳ Settlement tranche not locked yet — fund it before you can settle."
+                            : "⏳ Awaiting the buyer to lock the settlement tranche before you deliver."}
+                      </p>
+                    )}
+
                     {/* Stage-wise release schedule */}
                     {milestones.length > 0 && (
                       <div className="esc-miles">
@@ -384,9 +414,14 @@ export default function EscrowPage() {
                         )
                       )}
 
-                      {/* Settle (buyer only, advance released) */}
+                      {/* Settle (buyer only) — two-tranche: fund settlement first, then settle */}
                       {user?.role === "buyer" && e.advance_released && e.contract_status === "accepted" && e.status !== "completed" && (
-                        settling === e.contract_id ? (
+                        !e.settlement_funded ? (
+                          <button onClick={() => fundSettlement(e.contract_id)} disabled={fundingSettlement === e.contract_id}
+                            className="esc-btn--advance">
+                            {fundingSettlement === e.contract_id ? "Locking…" : "🔒 Fund Settlement (lock 70% + buffer)"}
+                          </button>
+                        ) : settling === e.contract_id ? (
                           <div className="esc-settle">
                             <div className="esc-settle__row">
                               <input type="number" value={deliveredQty}

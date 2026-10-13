@@ -180,9 +180,12 @@ const createEscrowOnAccept = async (client, { contract_id, farmer_id }) => {
                             (parseFloat(contract.buffer_pct) || 10) / 100));
   const locked_pct      = 100 * (1 + buffer_frac);   // e.g. 110 for a 10% buffer
   const contract_value  = parseFloat(contract.quantity) * parseFloat(contract.offered_price) * 10;
-  const total_locked    = contract_value * (1 + buffer_frac); // contract + buffer
+  const full_lock       = contract_value * (1 + buffer_frac); // 110% — the eventual total
+  // Two-tranche funding: lock only the staged-advance portion (30%) now; the buyer
+  // tops up the settlement tranche (70% + buffer) before harvest via fundSettlement.
+  const tranche1        = contract_value * 0.30;   // funds the 5 milestones
   const advance_amount  = contract_value * 0.05;   // 5% cultivation advance to farmer now
-  const buffer_amount   = contract_value * buffer_frac; // safety margin
+  const buffer_amount   = contract_value * buffer_frac; // safety margin (locked with tranche 2)
   const pending_amount  = contract_value - advance_amount; // balance at harvest
 
   // ── Create escrow record ──────────────────────────────────────────────────
@@ -197,21 +200,21 @@ const createEscrowOnAccept = async (client, { contract_id, farmer_id }) => {
     [
       contract_id, contract.buyer_id, farmer_id,
       advance_amount, pending_amount, contract_value,
-      buffer_amount, locked_pct, total_locked,
+      buffer_amount, locked_pct, tranche1,
     ]
   );
   const escrow = escrowRes.rows[0];
 
-  // ── First ledger entry: buffer locked ─────────────────────────────────────
+  // ── First ledger entry: tranche 1 locked (30%, funds the milestones) ───────
   await ledgerInsert(client, {
     escrow_id:       escrow.id,
     contract_id,
-    entry_type:      "buffer_locked",
-    amount:          total_locked,
-    running_balance: total_locked,
+    entry_type:      "tranche1_locked",
+    amount:          tranche1,
+    running_balance: tranche1,
     actor_id:        contract.buyer_id,
     actor_role:      "buyer",
-    note: `${locked_pct.toFixed(0)}% buffer locked. Contract value: ₹${contract_value.toFixed(0)}, Buffer (${(buffer_frac * 100).toFixed(0)}%): ₹${buffer_amount.toFixed(0)}`,
+    note: `Tranche 1 (30% = ₹${tranche1.toFixed(0)}) locked — funds the staged milestones. Settlement tranche (₹${(full_lock - tranche1).toFixed(0)}) due before harvest. Contract value ₹${contract_value.toFixed(0)}, eventual lock ₹${full_lock.toFixed(0)} (${locked_pct.toFixed(0)}%).`,
   });
 
   // ── Seed the stage-based release schedule ─────────────────────────────────
@@ -228,7 +231,7 @@ const createEscrowOnAccept = async (client, { contract_id, farmer_id }) => {
     );
   }
 
-  return { escrow, contract_value, advance_amount, total_locked, buffer_amount, locked_pct };
+  return { escrow, contract_value, advance_amount, total_locked: tranche1, full_lock, buffer_amount, locked_pct };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -549,6 +552,110 @@ const releaseMilestone = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 2c. FUND THE SETTLEMENT TRANCHE (two-tranche funding)
+// The buyer locks the remaining ~70% + buffer before harvest. Until this is done,
+// settlement is blocked — this is the farmer's guarantee that the balance exists
+// in escrow before they deliver. Idempotent + advisory-locked like every money op.
+// ─────────────────────────────────────────────────────────────────────────────
+const fundSettlement = async (req, res) => {
+  try {
+    const buyer_id        = req.user.id;
+    const { contract_id } = req.params;
+    const idem_key        = req.headers["x-idempotency-key"] ||
+                            `fund-settlement-${contract_id}-${buyer_id}`;
+
+    const result = await withTransaction(async (client) => {
+      const cached = await checkIdempotency(client, idem_key, buyer_id, "fund_settlement");
+      if (cached) return cached;
+
+      await client.query("SELECT pg_advisory_xact_lock($1)", [parseInt(contract_id)]);
+
+      const escrowRes = await client.query(
+        `SELECT escrow.*, contracts.status AS contract_status, contracts.dispute_status,
+                contracts.quantity, contracts.offered_price, contracts.buffer_pct,
+                contracts.farmer_id, contracts.listing_id
+         FROM escrow
+         JOIN contracts ON escrow.contract_id = contracts.id
+         WHERE escrow.contract_id = $1 AND escrow.buyer_id = $2
+         FOR UPDATE OF escrow, contracts`,
+        [contract_id, buyer_id]
+      );
+      if (escrowRes.rows.length === 0) {
+        throw Object.assign(new Error("Escrow not found"), { status: 404 });
+      }
+      const e = escrowRes.rows[0];
+
+      if (e.contract_status !== "accepted") {
+        throw Object.assign(new Error("Contract must be accepted before funding settlement"), { status: 400 });
+      }
+      if (e.status === "completed") {
+        throw Object.assign(new Error("Escrow already settled"), { status: 409 });
+      }
+      if (e.dispute_status === "open") {
+        throw Object.assign(new Error("Funds are frozen — this contract has an open dispute awaiting admin review"), { status: 423 });
+      }
+      if (e.settlement_funded) {
+        throw Object.assign(new Error("Settlement tranche already funded"), { status: 409 });
+      }
+
+      const buffer_frac    = Math.min(0.25, Math.max(0.05, (parseFloat(e.buffer_pct) || 10) / 100));
+      const contract_value = parseFloat(e.quantity) * parseFloat(e.offered_price) * 10;
+      const tranche2       = contract_value * (0.70 + buffer_frac);  // 70% balance + buffer
+      const new_total      = parseFloat(e.total_locked) + tranche2;  // → 110% of value
+      const payment        = mockPayment();
+
+      await client.query(
+        `UPDATE escrow
+         SET total_locked = total_locked + $1,
+             settlement_funded = true,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [tranche2, e.id]
+      );
+
+      await ledgerInsert(client, {
+        escrow_id:       e.id,
+        contract_id,
+        entry_type:      "settlement_funded",
+        amount:          tranche2,
+        running_balance: new_total - parseFloat(e.released_to_farmer || 0),
+        actor_id:        buyer_id,
+        actor_role:      "buyer",
+        note: `Settlement tranche locked: ₹${tranche2.toFixed(0)} (70% balance + ${(buffer_frac * 100).toFixed(0)}% buffer). Total locked now ₹${new_total.toFixed(0)}. Ref ${payment.payment_ref}`,
+        payment_ref:     payment.payment_ref,
+      });
+
+      const crop = await client.query("SELECT crop_name FROM listings WHERE id = $1", [e.listing_id]);
+      await client.query(
+        `INSERT INTO notifications (user_id, title, message, type, reference_id, reference_type)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          e.farmer_id,
+          "Settlement Funded ✅",
+          `The buyer has locked the final settlement amount for your ${crop.rows[0]?.crop_name} contract — it's now safe to deliver, your balance is secured in escrow.`,
+          "payment_released", contract_id, "contract",
+        ]
+      );
+
+      const outcome = {
+        success:           true,
+        tranche2_locked:   tranche2,
+        total_locked:      new_total,
+        settlement_funded: true,
+        payment_ref:       payment.payment_ref,
+      };
+      await saveIdempotencyResult(client, idem_key, buyer_id, outcome);
+      return outcome;
+    });
+
+    res.status(200).json(result);
+  } catch (err) {
+    console.error("Fund settlement error:", err);
+    res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 3. MARKET-BASED FINAL SETTLEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 const settleEscrow = async (req, res) => {
@@ -574,6 +681,7 @@ const settleEscrow = async (req, res) => {
         `SELECT contracts.*, escrow.id AS escrow_id,
                 escrow.advance_amount, escrow.total_locked,
                 escrow.released_to_farmer, escrow.advance_released,
+                escrow.settlement_funded,
                 escrow.status AS escrow_status
          FROM contracts
          JOIN escrow ON escrow.contract_id = contracts.id
@@ -598,6 +706,14 @@ const settleEscrow = async (req, res) => {
         throw Object.assign(
           new Error("Cannot settle — this contract has an open dispute awaiting admin review"),
           { status: 423 }
+        );
+      }
+
+      // Two-tranche guard: the settlement funds must be locked before settling.
+      if (!c.settlement_funded) {
+        throw Object.assign(
+          new Error("Settlement funds aren't locked yet — fund the settlement tranche (70% + buffer) before settling."),
+          { status: 400 }
         );
       }
 
@@ -890,6 +1006,7 @@ module.exports = {
   createEscrowOnAccept,
   releaseAdvance,
   releaseMilestone,
+  fundSettlement,
   settleEscrow,
   getEscrowByContract,
   getMyEscrows,

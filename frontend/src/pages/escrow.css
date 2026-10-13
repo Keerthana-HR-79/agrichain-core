@@ -101,6 +101,11 @@
 .esc-trust__badge--warn { background: #fef3c7; color: #92400e; }
 .esc-trust__note { font-size: 0.75rem; color: #92400e; margin-top: 0.5rem; }
 
+/* Two-tranche settlement funding status */
+.esc-fund-status { font-size: 0.8rem; border-radius: 0.5rem; padding: 0.5rem 0.75rem; margin: 0.25rem 0 1rem; }
+.esc-fund-status--ok   { background: #dcfce7; color: #166534; }
+.esc-fund-status--wait { background: #fef3c7; color: #92400e; }
+
 /* Progress bar */
 .esc-progress { margin-bottom: 1rem; }
 .esc-progress__meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; }
